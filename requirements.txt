@@ -4,3 +4,7 @@ langgraph
 httpx
 psycopg[binary]>=3.1
 testcontainers>=4.0
+fastapi>=0.115
+uvicorn>=0.30
+python-docx>=1.1
+langgraph-checkpoint-postgres>=2.0

@@ -43,6 +43,7 @@ class WorkflowStatus(StrEnum):
 
 class WorkflowState(TypedDict, total=False):
     jd_text: str
+    job_id: int
     requirements: JobRequirements | None
     retrieved_facts: list[Fact]
     claims: list[ResumeClaim]

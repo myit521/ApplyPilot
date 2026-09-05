@@ -1,0 +1,18 @@
+# 个人求职上下文（含姓名、学校、实习内部路径等隐私信息），不随公开仓库发布
+docs/resume-context-summary.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# 环境与密钥
+.env
+.env.*
+
+# 系统文件
+.DS_Store
+Thumbs.db

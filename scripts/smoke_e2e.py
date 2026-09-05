@@ -80,8 +80,10 @@ def main() -> int:
     if state["status"] != "WAITING_APPROVAL":
         print(f"!! 工作流未进入审批: {state['error']}")
         return 1
-    for c in state["claims"]:
-        print(f"  - {c['text'][:60]}... 引用: {c['fact_ids']}")
+    titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
+    for name, title in titles.items():
+        for c in (state["sections"] or {}).get(name, []):
+            print(f"  [{title}] {c['text'][:60]} 引用: {c['fact_ids']}")
 
     print("\n== 5. 批准并冻结版本 ==")
     result = client.post(

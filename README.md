@@ -82,6 +82,13 @@ pip install -r requirements.txt
 pytest
 ```
 
+使用真实模型时，在 `.env`（已 gitignore）中配置：
+
+```bash
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_MODEL=deepseek-chat
+```
+
 ## 范围控制
 
 MVP 明确不做：多平台全面适配、验证码绕过、未经确认的批量自动投递、邮箱自动收发、多用户 SaaS、微服务与独立向量数据库、无界 Think-Execute 循环。

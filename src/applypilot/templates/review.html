@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>审批 - {{ run_id }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  .claim { border: 1px solid #e2e2e2; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .claim-text { font-size: 1rem; margin-bottom: .5rem; }
+  .fact { background: #f8fafc; border-left: 3px solid #94a3b8; padding: .4rem .8rem; margin: .3rem 0; font-size: .85rem; color: #475569; }
+  .fact-id { font-family: monospace; color: #1d4ed8; }
+  .actions { margin-top: 1.5rem; display: flex; gap: .8rem; align-items: center; }
+  button { padding: .5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: .95rem; }
+  #approve { background: #15803d; color: #fff; }
+  #reject { background: #b91c1c; color: #fff; }
+  #feedback { flex: 1; padding: .5rem; border: 1px solid #cbd5e1; border-radius: 6px; }
+  #result { margin-top: 1rem; font-weight: 600; }
+  .error { color: #b91c1c; font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>简历审批 <small>{{ run_id }}</small></h1>
+<p>共 {{ claims|length }} 条生成内容，每条下方列出其引用的事实原文。量化指标与技能均已通过确定性校验。</p>
+
+{% for c in claims %}
+<div class="claim">
+  <div class="claim-text">{{ c.text }}</div>
+  {% for f in c.facts %}
+  <div class="fact"><span class="fact-id">{{ f.id }}</span>｜{{ f.source_name }}：{{ f.content }}{% if f.metrics %}｜指标: {{ f.metrics|join('、') }}{% endif %}</div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="actions">
+  <button id="approve">批准并冻结版本</button>
+  <input id="feedback" placeholder="退回意见（退回时填写）">
+  <button id="reject">退回重新生成</button>
+</div>
+<div id="result"></div>
+
+<script>
+const runId = {{ run_id | tojson }};
+async function decide(approved) {
+  const body = { approved, feedback: document.getElementById('feedback').value };
+  const resp = await fetch(`/api/workflows/${runId}/approve`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const data = await resp.json();
+  const el = document.getElementById('result');
+  if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
+  if (data.status === 'READY_TO_APPLY') {
+    el.innerHTML = `已批准，简历版本 #${data.resume_version_id} 已冻结。<a href="/api/resume-versions/${data.resume_version_id}/docx">下载 DOCX</a>`;
+  } else {
+    el.textContent = `已退回，工作流状态: ${data.status}。重新生成完成后请刷新本页。`;
+  }
+}
+document.getElementById('approve').onclick = () => decide(true);
+document.getElementById('reject').onclick = () => decide(false);
+</script>
+</body>
+</html>

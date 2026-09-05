@@ -37,8 +37,11 @@ class FactImportError(Exception):
     pass
 
 
-def extract_facts(resume_text: str, adapter: ModelAdapter) -> list[Fact]:
-    """从简历文本提取事实草稿。解析失败的条目跳过并计数。"""
+def extract_facts(resume_text: str, adapter: ModelAdapter) -> tuple[list[Fact], int]:
+    """从简历文本提取事实草稿，返回 (事实列表, 丢弃条数)。
+
+    日期等单字段不合法时置空后保留事实，避免整条经历被静默丢弃。
+    """
     output = adapter.complete(_SYSTEM_PROMPT, resume_text)
     try:
         data = json.loads(_extract_json(output))
@@ -48,12 +51,17 @@ def extract_facts(resume_text: str, adapter: ModelAdapter) -> list[Fact]:
     facts: list[Fact] = []
     skipped = 0
     for item in data.get("facts", []):
+        item["id"] = f"fact_{uuid.uuid4().hex[:12]}"
+        item.setdefault("evidence_type", "self_report")
         try:
-            item["id"] = f"fact_{uuid.uuid4().hex[:12]}"
-            item.setdefault("evidence_type", "self_report")
             facts.append(Fact.model_validate(item))
         except ValidationError:
-            skipped += 1
+            item["start_date"] = None
+            item["end_date"] = None
+            try:
+                facts.append(Fact.model_validate(item))
+            except ValidationError:
+                skipped += 1
     if not facts and skipped:
         raise FactImportError(f"全部 {skipped} 条事实结构不合法")
-    return facts
+    return facts, skipped

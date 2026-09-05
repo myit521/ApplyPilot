@@ -115,3 +115,31 @@ def test_metric_must_be_verbatim():
     ]
     errors = validate_claims(claims, FACTS)
     assert "UNSUPPORTED_NUMBER" in [e.code for e in errors]
+
+
+def test_lexicon_catches_skill_outside_vocabulary():
+    """事实库技能标签中没有的技术词（如 Kafka）出现在表述中，
+    也必须被拦截——词表漏洞回归测试。"""
+    claims = [
+        ResumeClaim(
+            text="使用 Kafka 实现异步消息解耦",
+            fact_ids=["fact_intern_batch_01"],
+        )
+    ]
+    errors = validate_claims(claims, FACTS)
+    assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+def test_specific_skill_tag_covers_generic_term():
+    """更具体的技能标签（SQL预览）覆盖通用词（SQL）。"""
+    facts = [
+        Fact(
+            id="f_sql",
+            fact_type=FactType.INTERNSHIP,
+            source_name="亚信实习",
+            content="提供 SQL 预览能力",
+            skills=["SQL预览"],
+        )
+    ]
+    claims = [ResumeClaim(text="提供 SQL 预览能力", fact_ids=["f_sql"])]
+    assert validate_claims(claims, facts) == []

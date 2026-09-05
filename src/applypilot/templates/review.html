@@ -5,6 +5,7 @@
 <title>审批 - {{ run_id }}</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h2 { font-size: 1.05rem; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: .3rem; }
   .claim { border: 1px solid #e2e2e2; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
   .claim-text { font-size: 1rem; margin-bottom: .5rem; }
   .fact { background: #f8fafc; border-left: 3px solid #94a3b8; padding: .4rem .8rem; margin: .3rem 0; font-size: .85rem; color: #475569; }
@@ -20,15 +21,20 @@
 </head>
 <body>
 <h1>简历审批 <small>{{ run_id }}</small></h1>
-<p>共 {{ claims|length }} 条生成内容，每条下方列出其引用的事实原文。量化指标与技能均已通过确定性校验。</p>
+<p>共 {{ total }} 条生成内容，每条下方列出其引用的事实原文。量化指标与技能均已通过确定性校验。</p>
 
-{% for c in claims %}
+{% for section_name, section_title in [('education', '教育背景'), ('skills', '专业技能'), ('experience', '工作与项目经历')] %}
+{% if sections[section_name] %}
+<h2>{{ section_title }}</h2>
+{% for c in sections[section_name] %}
 <div class="claim">
   <div class="claim-text">{{ c.text }}</div>
   {% for f in c.facts %}
   <div class="fact"><span class="fact-id">{{ f.id }}</span>｜{{ f.source_name }}：{{ f.content }}{% if f.metrics %}｜指标: {{ f.metrics|join('、') }}{% endif %}</div>
   {% endfor %}
 </div>
+{% endfor %}
+{% endif %}
 {% endfor %}
 
 <div class="actions">

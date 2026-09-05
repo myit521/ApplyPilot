@@ -28,7 +28,7 @@ from .docx_export import render_docx
 from .fact_import import FactImportError, extract_facts
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelError
-from .schemas import Fact, FactType, JobRequirements, ResumeClaim
+from .schemas import Fact, FactType, JobRequirements, ResumeSections
 from .workflow import WorkflowStatus, build_graph
 
 
@@ -216,13 +216,14 @@ def create_app(
         if not state.values:
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         values: dict[str, Any] = state.values
+        resume = values.get("resume")
         summary = {
             "run_id": run_id,
             "status": values.get("status"),
             "waiting": bool(state.next),
             "validation_retries": values.get("validation_retries", 0),
             "error": values.get("error") or run_errors.get(run_id, ""),
-            "claims": [c.model_dump(mode="json") for c in values.get("claims", [])],
+            "sections": resume.model_dump(mode="json") if resume else None,
             "validation_errors": [
                 e.model_dump(mode="json") for e in values.get("validation_errors", [])
             ],
@@ -306,30 +307,30 @@ def create_app(
 
         if req.approved and summary["status"] == WorkflowStatus.READY_TO_APPLY:
             job_id = graph.get_state(config).values.get("job_id")
-            version_id = _freeze_version(job_id, summary["claims"])
+            version_id = _freeze_version(job_id, summary["sections"])
             summary["resume_version_id"] = version_id
         return summary
 
-    def _freeze_version(job_id: int | None, claims: list[dict]) -> int:
-        """批准后将 claims 冻结为不可变简历版本（第 8.5 节）。"""
+    def _freeze_version(job_id: int | None, sections: dict) -> int:
+        """批准后将分区简历冻结为不可变版本（第 8.3、8.5 节）。"""
         conn = get_conn()
-        content = {"claims": claims}
         row = conn.execute(
             "INSERT INTO resume_versions (job_id, content, status) "
             "VALUES (%s, %s, 'approved') RETURNING id",
-            (job_id, json.dumps(content)),
+            (job_id, json.dumps({"sections": sections})),
         ).fetchone()
-        for claim in claims:
-            conn.execute(
-                "INSERT INTO resume_claims (version_id, text, fact_ids, matched_requirements) "
-                "VALUES (%s, %s, %s, %s)",
-                (
-                    row["id"],
-                    claim["text"],
-                    claim["fact_ids"],
-                    claim.get("matched_requirements", []),
-                ),
-            )
+        for section_claims in sections.values():
+            for claim in section_claims:
+                conn.execute(
+                    "INSERT INTO resume_claims (version_id, text, fact_ids, matched_requirements) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (
+                        row["id"],
+                        claim["text"],
+                        claim["fact_ids"],
+                        claim.get("matched_requirements", []),
+                    ),
+                )
         return row["id"]
 
     # ---------- 简历版本 ----------
@@ -344,8 +345,8 @@ def create_app(
         ).fetchone()
         if version is None:
             raise HTTPException(404, f"简历版本 {version_id} 不存在")
-        claims = [ResumeClaim.model_validate(c) for c in version["content"]["claims"]]
-        data = render_docx(version["title"] or "未命名职位", claims)
+        sections = ResumeSections.model_validate(version["content"]["sections"])
+        data = render_docx(version["title"] or "未命名职位", sections)
         return Response(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -373,16 +374,26 @@ def create_app(
     def review(request: Request, run_id: str) -> HTMLResponse:
         summary = _summarize_state(run_id)
         conn = get_conn()
-        claims = []
-        for claim in summary["claims"]:
-            cited = []
-            for fid in claim["fact_ids"]:
-                fact = facts_repo.get_fact(conn, fid)
-                if fact:
-                    cited.append(fact.model_dump(mode="json"))
-            claims.append({**claim, "facts": cited})
+
+        def with_facts(claims: list[dict]) -> list[dict]:
+            result = []
+            for claim in claims:
+                cited = []
+                for fid in claim["fact_ids"]:
+                    fact = facts_repo.get_fact(conn, fid)
+                    if fact:
+                        cited.append(fact.model_dump(mode="json"))
+                result.append({**claim, "facts": cited})
+            return result
+
+        sections = summary["sections"] or {}
+        context = {
+            name: with_facts(sections.get(name, []))
+            for name in ("education", "skills", "experience")
+        }
+        total = sum(len(v) for v in context.values())
         return TEMPLATES.TemplateResponse(
-            request, "review.html", {"run_id": run_id, "claims": claims}
+            request, "review.html", {"run_id": run_id, "sections": context, "total": total}
         )
 
     # ---------- 投递记录 ----------

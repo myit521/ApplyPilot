@@ -61,17 +61,18 @@ stateDiagram-v2
 
 ## 项目状态
 
-当前处于两周 MVP 开发初期，已完成：
+核心链路已打通并通过真实模型冒烟验证（导入 → 解析 → 检索 → 生成 → 校验 → 审批 → DOCX）：
 
 - [x] 产品与技术设计（[docs/design.md](docs/design.md)）
-- [x] 数据模型 Schema 与确定性事实校验模块（`src/applypilot/`）
-- [ ] JD 解析与事实导入
-- [ ] 混合检索
-- [ ] 简历生成与 LangGraph 编排
-- [ ] 人工审批页面与 DOCX 导出
+- [x] 数据模型 Schema 与确定性事实校验（含技术词表边界、语义复核层）
+- [x] JD 解析与事实导入（DeepSeek 适配器，修复重试）
+- [x] 全文 + pgvector 混合检索（本地 bge 嵌入，可解释加权打分）
+- [x] 分区结构简历生成与 LangGraph 编排（PostgreSQL checkpointer 断点恢复）
+- [x] 人工审批页面与 DOCX 导出（Jinja2 审核台）
+- [x] FastAPI 接口（幂等键、版本冻结）
+- [x] Docker Compose 一键启动
 - [ ] Playwright 表单填写
 - [ ] 评测数据集与报告
-- [ ] Docker Compose 一键启动
 
 ## 快速开始
 

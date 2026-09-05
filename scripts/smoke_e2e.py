@@ -20,6 +20,7 @@ import httpx
 BASE = "http://127.0.0.1:8000"
 
 RESUME_TEXT = (
+    "武汉轻工大学软件工程专业本科，2027 届毕业。"
     "2025.06-2025.09 亚信科技 后端开发实习生。"
     "承担运维工具批量执行模块开发，提供批量参数校验、预检、SQL 预览和异步执行能力，交付 6 个批量接口。"
     "实现进度查询、结果查询、失败行提取和基于 source_batch_id 的失败数据修正重试。"
@@ -83,8 +84,10 @@ def main() -> int:
     if state["status"] != "WAITING_APPROVAL":
         print(f"!! 工作流未进入审批: {state['error']}")
         return 1
-    for c in state["claims"]:
-        print(f"  - {c['text'][:60]}... 引用: {c['fact_ids']}")
+    titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
+    for name, title in titles.items():
+        for c in (state["sections"] or {}).get(name, []):
+            print(f"  [{title}] {c['text'][:60]} 引用: {c['fact_ids']}")
 
     print("\n== 5. 批准并冻结版本 ==")
     result = client.post(

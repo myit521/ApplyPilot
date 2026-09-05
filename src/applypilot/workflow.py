@@ -26,6 +26,7 @@ from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelAdapter
 from .retrieval import ScoredFact
 from .schemas import Fact, JobRequirements, ResumeClaim, ValidationError
+from .semantic_check import semantic_check
 from .validation import validate_claims
 
 MAX_VALIDATION_RETRIES = 2
@@ -77,11 +78,18 @@ def build_graph(
         return {"retrieved_facts": facts, "status": WorkflowStatus.GENERATING_RESUME}
 
     def node_generate(state: WorkflowState) -> dict:
-        claims = generate_resume(state["requirements"], state["retrieved_facts"], adapter)
+        errors = state.get("validation_errors", [])
+        feedback = "\n".join(f"- [{e.code}] {e.detail}（{e.suggestion}）" for e in errors)
+        claims = generate_resume(
+            state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
+        )
         return {"claims": claims, "status": WorkflowStatus.VALIDATING_FACTS}
 
     def node_validate(state: WorkflowState) -> dict:
         errors = validate_claims(state["claims"], state["retrieved_facts"])
+        if not errors:
+            # 确定性规则通过后，模型复核语义越界（第 8.4 节后段）
+            errors = semantic_check(state["claims"], state["retrieved_facts"], adapter)
         retries = state.get("validation_retries", 0)
         if errors and retries < MAX_VALIDATION_RETRIES:
             return {

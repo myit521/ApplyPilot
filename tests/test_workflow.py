@@ -51,16 +51,19 @@ BAD_CLAIM = {
 class ScriptedAdapter:
     """按脚本依次返回 JD 解析结果和生成结果。"""
 
-    def __init__(self, jd_output: str, generate_outputs: list[str]):
-        self.jd_output = jd_output
-        self.generate_outputs = list(generate_outputs)
-        self.generate_calls = 0
-
     def complete(self, system: str, user: str) -> str:
         if "职位描述解析器" in system:
             return self.jd_output
+        if "事实一致性复核员" in system:
+            return self.semantic_output
         self.generate_calls += 1
         return self.generate_outputs.pop(0)
+
+    def __init__(self, jd_output: str, generate_outputs: list[str], semantic_output: str = '{"violations": []}'):
+        self.jd_output = jd_output
+        self.generate_outputs = list(generate_outputs)
+        self.semantic_output = semantic_output
+        self.generate_calls = 0
 
 
 def make_workflow(adapter):

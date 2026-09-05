@@ -25,9 +25,9 @@ from .generator import generate_resume
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelAdapter
 from .retrieval import ScoredFact
-from .schemas import Fact, JobRequirements, ResumeClaim, ValidationError
+from .schemas import Fact, JobRequirements, ResumeSections, ValidationError
 from .semantic_check import semantic_check
-from .validation import validate_claims
+from .validation import validate_sections
 
 MAX_VALIDATION_RETRIES = 2
 
@@ -47,7 +47,7 @@ class WorkflowState(TypedDict, total=False):
     job_id: int
     requirements: JobRequirements | None
     retrieved_facts: list[Fact]
-    claims: list[ResumeClaim]
+    resume: ResumeSections
     validation_errors: list[ValidationError]
     validation_retries: int
     status: WorkflowStatus
@@ -80,16 +80,18 @@ def build_graph(
     def node_generate(state: WorkflowState) -> dict:
         errors = state.get("validation_errors", [])
         feedback = "\n".join(f"- [{e.code}] {e.detail}（{e.suggestion}）" for e in errors)
-        claims = generate_resume(
+        resume = generate_resume(
             state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
         )
-        return {"claims": claims, "status": WorkflowStatus.VALIDATING_FACTS}
+        return {"resume": resume, "status": WorkflowStatus.VALIDATING_FACTS}
 
     def node_validate(state: WorkflowState) -> dict:
-        errors = validate_claims(state["claims"], state["retrieved_facts"])
+        resume = state["resume"]
+        facts = state["retrieved_facts"]
+        errors = validate_sections(resume, facts)
         if not errors:
             # 确定性规则通过后，模型复核语义越界（第 8.4 节后段）
-            errors = semantic_check(state["claims"], state["retrieved_facts"], adapter)
+            errors = semantic_check(resume.all_claims(), facts, adapter)
         retries = state.get("validation_retries", 0)
         if errors and retries < MAX_VALIDATION_RETRIES:
             return {
@@ -106,7 +108,7 @@ def build_graph(
         return {"validation_errors": [], "status": WorkflowStatus.WAITING_APPROVAL}
 
     def node_approval(state: WorkflowState) -> dict:
-        decision = interrupt({"claims": state["claims"]})
+        decision = interrupt({"resume": state["resume"]})
         if decision.get("approved"):
             return {"status": WorkflowStatus.READY_TO_APPLY}
         # 用户退回：携带修改意见重新生成，重试计数清零

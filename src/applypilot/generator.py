@@ -1,24 +1,20 @@
 """简历生成节点。
 
 对应 docs/design.md 第 8.3 节：模型只能使用检索节点提供的事实
-生成内容，每条输出必须携带 fact_ids，量化指标必须逐字来自被
-引用事实的 metrics。本节点负责构造约束提示词并解析输出；
-生成结果是否合规由 validation 模块独立判定，不在本节点内自证。
+生成内容，输出为分区结构（education/skills/experience），每条
+输出必须携带 fact_ids，量化指标必须逐字来自被引用事实的
+metrics。生成结果是否合规由 validation 模块独立判定。
 """
 
 from __future__ import annotations
 
 import json
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from .jd_parser import JDParseError, _extract_json, _summarize
 from .model_adapter import ModelAdapter
-from .schemas import Fact, JobRequirements, ResumeClaim
-
-
-class GeneratedResume(BaseModel):
-    claims: list[ResumeClaim] = Field(default_factory=list)
+from .schemas import Fact, JobRequirements, ResumeSections
 
 
 class ResumeGenerationError(Exception):
@@ -37,7 +33,14 @@ def build_prompt(requirements: JobRequirements, facts: list[Fact]) -> tuple[str,
 - 每条内容必须携带 fact_ids，引用其依据的事实。
 - 量化指标必须逐字复制所引用事实 metrics 字段的原文，不得改写或换算。
 - "参与评审"类事实不得改写为"独立设计"或"负责实现"。
-只输出 JSON：{"claims": [{"text": "...", "fact_ids": ["..."], "matched_requirements": ["..."]}]}"""
+- education 分区只允许引用 education 类型事实；没有 education 事实时该分区留空。
+- skills 分区的每条内容同样必须携带 fact_ids：只能汇总引用事实中出现过的技能，没有事实支撑的技能不要写。
+只输出 JSON：
+{"sections": {
+  "education": [{"text": "...", "fact_ids": ["..."]}],
+  "skills": [{"text": "...", "fact_ids": ["..."]}],
+  "experience": [{"text": "...", "fact_ids": ["..."], "matched_requirements": ["..."]}]
+}}"""
 
     fact_lines = []
     for f in facts:
@@ -61,8 +64,8 @@ def generate_resume(
     facts: list[Fact],
     adapter: ModelAdapter,
     feedback: str = "",
-) -> list[ResumeClaim]:
-    """生成简历内容并解析为 ResumeClaim 列表。
+) -> ResumeSections:
+    """生成分区结构简历内容。
 
     feedback 为上一轮事实校验的错误摘要（第 8.4 节：失败结果
     附带错误码和修改建议退回生成节点）。
@@ -73,8 +76,8 @@ def generate_resume(
     output = adapter.complete(system, user)
     try:
         data = json.loads(_extract_json(output))
-        return GeneratedResume.model_validate(data).claims
-    except (JDParseError, json.JSONDecodeError, ValidationError) as e:
+        return ResumeSections.model_validate(data["sections"])
+    except (JDParseError, KeyError, TypeError, json.JSONDecodeError, ValidationError) as e:
         raise ResumeGenerationError(
             f"生成结果结构不合法: {e}", _summarize(output)
         ) from e

@@ -34,17 +34,25 @@ JD_REQUIREMENTS = {
 }
 
 GOOD_CLAIM = {
-    "claims": [
-        {"text": "承担批量执行模块开发，交付 6 个批量接口",
-         "fact_ids": ["fact_01"], "matched_requirements": ["Java"]}
-    ]
+    "sections": {
+        "education": [],
+        "skills": [],
+        "experience": [
+            {"text": "承担批量执行模块开发，交付 6 个批量接口",
+             "fact_ids": ["fact_01"], "matched_requirements": ["Java"]}
+        ],
+    }
 }
 
 BAD_CLAIM = {
-    "claims": [
-        {"text": "独立完成架构设计，QPS 提升 999%",
-         "fact_ids": ["fact_01"], "matched_requirements": []}
-    ]
+    "sections": {
+        "education": [],
+        "skills": [],
+        "experience": [
+            {"text": "独立完成架构设计，QPS 提升 999%",
+             "fact_ids": ["fact_01"], "matched_requirements": []}
+        ],
+    }
 }
 
 

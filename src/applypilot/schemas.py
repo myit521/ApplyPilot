@@ -56,6 +56,21 @@ class ResumeClaim(BaseModel):
     matched_requirements: list[str] = Field(default_factory=list)
 
 
+class ResumeSections(BaseModel):
+    """分区结构的简历内容（docs/design.md 第 8.3 节）。
+
+    education 分区只允许引用 education 类型事实；全部分区的
+    表述都必须携带事实引用并接受同样的事实校验。
+    """
+
+    education: list[ResumeClaim] = Field(default_factory=list)
+    skills: list[ResumeClaim] = Field(default_factory=list)
+    experience: list[ResumeClaim] = Field(default_factory=list)
+
+    def all_claims(self) -> list[ResumeClaim]:
+        return self.education + self.skills + self.experience
+
+
 class KeywordImportance(StrEnum):
     REQUIRED = "required"
     PREFERRED = "preferred"
@@ -98,6 +113,7 @@ class ErrorCode(StrEnum):
     UNSUPPORTED_NUMBER = "UNSUPPORTED_NUMBER"
     UNSUPPORTED_SKILL = "UNSUPPORTED_SKILL"
     SEMANTIC_OVERRUN = "SEMANTIC_OVERRUN"
+    INVALID_FACT_TYPE = "INVALID_FACT_TYPE"
 
 
 class ValidationError(BaseModel):

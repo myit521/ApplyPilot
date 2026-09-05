@@ -34,11 +34,15 @@ FACTS_JSON = json.dumps({
 })
 
 CLAIMS_JSON = json.dumps({
-    "claims": [{
-        "text": "承担批量执行模块开发，交付 6 个批量接口",
-        "fact_ids": ["__FACT_ID__"],
-        "matched_requirements": ["Java"],
-    }]
+    "sections": {
+        "education": [],
+        "skills": [],
+        "experience": [{
+            "text": "承担批量执行模块开发，交付 6 个批量接口",
+            "fact_ids": ["__FACT_ID__"],
+            "matched_requirements": ["Java"],
+        }],
+    }
 })
 
 
@@ -114,7 +118,7 @@ def test_full_api_flow(client: TestClient):
     run_id = resp.json()["run_id"]
     state = wait_for_status(client, run_id)
     assert state["status"] == "WAITING_APPROVAL"
-    assert state["claims"][0]["fact_ids"] == [fact["id"]]
+    assert state["sections"]["experience"][0]["fact_ids"] == [fact["id"]]
     assert state["validation_errors"] == []
 
     # 6. 批准 -> 冻结版本

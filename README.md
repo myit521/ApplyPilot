@@ -79,6 +79,7 @@ stateDiagram-v2
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+docker compose up -d   # 启动 PostgreSQL + pgvector
 pytest
 ```
 

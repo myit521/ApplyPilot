@@ -51,6 +51,8 @@ class FakeAdapter:
             return JD_JSON
         if "事实提取器" in system:
             return FACTS_JSON
+        if "事实一致性复核员" in system:
+            return '{"violations": []}'
         return CLAIMS_JSON.replace("__FACT_ID__", self.fact_id)
 
 
@@ -73,7 +75,8 @@ def wait_for_status(client: TestClient, run_id: str, timeout: float = 30.0) -> d
         resp = client.get(f"/api/workflows/{run_id}")
         if resp.status_code == 200:
             state = resp.json()
-            if state["waiting"] or state["status"] in ("FAILED", "READY_TO_APPLY"):
+            # 以业务状态字段为准：执行中途 state.next 同样非空
+            if state["status"] in ("WAITING_APPROVAL", "FAILED", "READY_TO_APPLY"):
                 return state
         # 工作流线程尚未写入首个检查点时可能短暂 404，继续轮询
         time.sleep(0.3)
@@ -131,6 +134,13 @@ def test_full_api_flow(client: TestClient):
     # 8. 已结束后不能再审批
     resp = client.post(f"/api/workflows/{run_id}/approve", json={"approved": True})
     assert resp.status_code == 409
+
+    # 9. 审核页面
+    resp = client.get("/")
+    assert resp.status_code == 200 and "审核台" in resp.text
+    resp = client.get(f"/review/{run_id}")
+    assert resp.status_code == 200
+    assert "承担批量执行模块开发" in resp.text
 
 
 def test_workflow_idempotency(client: TestClient):

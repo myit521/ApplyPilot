@@ -10,14 +10,19 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
 from pydantic import BaseModel
 
 from . import db, facts_repo, search
+
+TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 from .deepseek_adapter import DeepSeekAdapter
 from .docx_export import render_docx
 from .fact_import import FactImportError, extract_facts
@@ -96,21 +101,36 @@ def create_app(
 
     def get_graph():
         conn = get_conn()
-        retriever = search.PostgresFactRetriever(conn)
+        retriever = search.PostgresFactRetriever(conn, embedding_provider=get_embeddings())
         return build_graph(get_adapter(), retriever, checkpointer=get_checkpointer())
+
+    _embedding_provider = None
+
+    def get_embeddings():
+        """本地嵌入模型；未安装 sentence-transformers 时退化为仅全文检索。"""
+        nonlocal _embedding_provider
+        if _embedding_provider is None:
+            from .embeddings import LocalEmbeddingProvider
+
+            _embedding_provider = LocalEmbeddingProvider()
+        return _embedding_provider
 
     # ---------- 事实库 ----------
 
     @app.post("/api/facts/import")
     def import_facts(req: FactImportRequest) -> dict:
         try:
-            facts = extract_facts(req.resume_text, get_adapter())
+            facts, skipped = extract_facts(req.resume_text, get_adapter())
         except FactImportError as e:
             raise HTTPException(422, str(e)) from e
         conn = get_conn()
         for fact in facts:
             facts_repo.upsert_fact(conn, fact)
-        return {"created": len(facts), "facts": [f.model_dump(mode="json") for f in facts]}
+        return {
+            "created": len(facts),
+            "skipped": skipped,
+            "facts": [f.model_dump(mode="json") for f in facts],
+        }
 
     @app.get("/api/facts")
     def list_facts(fact_type: FactType | None = None, enabled: bool = True) -> list[dict]:
@@ -163,7 +183,12 @@ def create_app(
 
         terms = search.extract_terms(requirements)
         fts = search.fulltext_hits(conn, terms)
-        hit_ids = set(fts)
+        vec: dict[str, float] = {}
+        embedding = get_embeddings().embed(search._query_text(requirements))
+        if embedding is not None:
+            search.backfill_embeddings(conn, get_embeddings())
+            vec = search.vector_hits(conn, embedding)
+        hit_ids = set(fts) | set(vec)
         if not hit_ids:
             return {"terms": terms, "candidates": []}
         placeholders = ",".join(["%s"] * len(hit_ids))
@@ -175,7 +200,7 @@ def create_app(
             facts,
             required_skills=search.required_skill_terms(requirements),
             fulltext_hits=fts,
-            vector_hits={},
+            vector_hits=vec,
         )
         return {
             "terms": terms,
@@ -325,6 +350,39 @@ def create_app(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f'attachment; filename="resume-{version_id}.docx"'},
+        )
+
+    # ---------- 审核页面 ----------
+
+    @app.get("/", response_class=HTMLResponse)
+    def index(request: Request) -> HTMLResponse:
+        conn = get_conn()
+        runs = conn.execute(
+            "SELECT id, status, retry_count, updated_at FROM workflow_runs "
+            "ORDER BY updated_at DESC LIMIT 50"
+        ).fetchall()
+        jobs = conn.execute(
+            "SELECT id, title, parsed IS NOT NULL AS parsed, created_at "
+            "FROM jobs ORDER BY id DESC LIMIT 50"
+        ).fetchall()
+        return TEMPLATES.TemplateResponse(
+            request, "index.html", {"runs": runs, "jobs": jobs}
+        )
+
+    @app.get("/review/{run_id}", response_class=HTMLResponse)
+    def review(request: Request, run_id: str) -> HTMLResponse:
+        summary = _summarize_state(run_id)
+        conn = get_conn()
+        claims = []
+        for claim in summary["claims"]:
+            cited = []
+            for fid in claim["fact_ids"]:
+                fact = facts_repo.get_fact(conn, fid)
+                if fact:
+                    cited.append(fact.model_dump(mode="json"))
+            claims.append({**claim, "facts": cited})
+        return TEMPLATES.TemplateResponse(
+            request, "review.html", {"run_id": run_id, "claims": claims}
         )
 
     # ---------- 投递记录 ----------

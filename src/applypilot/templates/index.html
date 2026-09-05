@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>ApplyPilot 审核台</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.4rem; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #e2e2e2; font-size: .9rem; }
+  .status { font-weight: 600; }
+  .status-WAITING_APPROVAL { color: #b45309; }
+  .status-READY_TO_APPLY { color: #15803d; }
+  .status-FAILED { color: #b91c1c; }
+  a { color: #1d4ed8; }
+</style>
+</head>
+<body>
+<h1>ApplyPilot 审核台</h1>
+
+<h2>工作流运行</h2>
+<table>
+  <tr><th>运行 ID</th><th>状态</th><th>重试</th><th>更新时间</th><th></th></tr>
+  {% for r in runs %}
+  <tr>
+    <td>{{ r.id }}</td>
+    <td class="status status-{{ r.status }}">{{ r.status }}</td>
+    <td>{{ r.retry_count }}</td>
+    <td>{{ r.updated_at }}</td>
+    <td>{% if r.status == 'WAITING_APPROVAL' %}<a href="/review/{{ r.id }}">去审批</a>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>职位</h2>
+<table>
+  <tr><th>ID</th><th>岗位</th><th>已解析</th><th>创建时间</th></tr>
+  {% for j in jobs %}
+  <tr><td>{{ j.id }}</td><td>{{ j.title or '（未解析）' }}</td><td>{{ '是' if j.parsed else '否' }}</td><td>{{ j.created_at }}</td></tr>
+  {% endfor %}
+</table>
+</body>
+</html>

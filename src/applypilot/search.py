@@ -77,7 +77,7 @@ def vector_hits(
     limit: int = _CANDIDATE_LIMIT,
 ) -> dict[str, float]:
     """向量命中：余弦相似度（0,1]。"""
-    literal = "[" + ",".join(str(x) for x in query_embedding) + "]"
+    literal = _vector_literal(query_embedding)
     rows = conn.execute(
         """
         SELECT id, 1 - (embedding <=> %(v)s::vector) AS score
@@ -96,6 +96,28 @@ def _query_text(requirements: JobRequirements) -> str:
     parts += requirements.required + requirements.responsibilities
     parts += [k.term for k in requirements.keywords]
     return " ".join(p for p in parts if p)
+
+
+def _vector_literal(embedding: list[float]) -> str:
+    return "[" + ",".join(str(x) for x in embedding) + "]"
+
+
+def backfill_embeddings(conn: psycopg.Connection, provider: EmbeddingProvider) -> int:
+    """为缺少向量的事实补算嵌入，返回补算条数。"""
+    rows = conn.execute(
+        "SELECT id, content, skills FROM facts WHERE embedding IS NULL"
+    ).fetchall()
+    filled = 0
+    for r in rows:
+        text = f"{r['content']} {' '.join(r['skills'])}"
+        embedding = provider.embed(text)
+        if embedding is not None:
+            conn.execute(
+                "UPDATE facts SET embedding = %s::vector WHERE id = %s",
+                (_vector_literal(embedding), r["id"]),
+            )
+            filled += 1
+    return filled
 
 
 class PostgresFactRetriever:
@@ -120,6 +142,7 @@ class PostgresFactRetriever:
         vec: dict[str, float] = {}
         embedding = self.embedding_provider.embed(_query_text(requirements))
         if embedding is not None:
+            backfill_embeddings(self.conn, self.embedding_provider)
             vec = vector_hits(self.conn, embedding)
 
         hit_ids = set(fts) | set(vec)

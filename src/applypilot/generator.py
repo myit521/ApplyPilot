@@ -60,9 +60,16 @@ def generate_resume(
     requirements: JobRequirements,
     facts: list[Fact],
     adapter: ModelAdapter,
+    feedback: str = "",
 ) -> list[ResumeClaim]:
-    """生成简历内容并解析为 ResumeClaim 列表。"""
+    """生成简历内容并解析为 ResumeClaim 列表。
+
+    feedback 为上一轮事实校验的错误摘要（第 8.4 节：失败结果
+    附带错误码和修改建议退回生成节点）。
+    """
     system, user = build_prompt(requirements, facts)
+    if feedback:
+        user += f"\n\n你上一轮的输出未通过事实校验，请按以下意见修正：\n{feedback}"
     output = adapter.complete(system, user)
     try:
         data = json.loads(_extract_json(output))

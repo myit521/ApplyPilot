@@ -56,6 +56,41 @@ class ResumeClaim(BaseModel):
     matched_requirements: list[str] = Field(default_factory=list)
 
 
+class KeywordImportance(StrEnum):
+    REQUIRED = "required"
+    PREFERRED = "preferred"
+    MENTIONED = "mentioned"
+
+
+class KeywordRequirement(BaseModel):
+    """JD 技术关键词及其重要级别。"""
+
+    term: str
+    importance: KeywordImportance
+
+
+class JobRequirements(BaseModel):
+    """JD 解析节点的输出结构（docs/design.md 第 8.1 节）。
+
+    模型不得把"加分项"提升为"硬性要求"，因此 required 与
+    preferred 是独立字段，不存在互相转换的接口。
+    """
+
+    job_title: str = ""
+    job_category: str = ""
+    location: str = ""
+    required: list[str] = Field(default_factory=list, description="必备条件")
+    preferred: list[str] = Field(default_factory=list, description="加分条件")
+    responsibilities: list[str] = Field(default_factory=list)
+    keywords: list[KeywordRequirement] = Field(default_factory=list)
+    education_requirement: str = ""
+    graduation_time_requirement: str = ""
+    experience_requirement: str = ""
+    unknowns: list[str] = Field(
+        default_factory=list, description="无法从 JD 原文确定的信息"
+    )
+
+
 class ErrorCode(StrEnum):
     MISSING_CITATION = "MISSING_CITATION"
     UNKNOWN_FACT = "UNKNOWN_FACT"

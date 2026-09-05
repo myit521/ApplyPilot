@@ -104,7 +104,6 @@ MVP 明确不做：多平台全面适配、验证码绕过、未经确认的批�
 ## 文档
 
 - [产品与技术设计](docs/design.md)
-- [简历工作上下文摘要](docs/resume-context-summary.md)（个人求职上下文，不随公开仓库发布）
 
 ## License
 

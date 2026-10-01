@@ -8,13 +8,18 @@
 from __future__ import annotations
 
 import json
+import logging
+from contextlib import asynccontextmanager
 import threading
 import uuid
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
+import psycopg
+from psycopg.rows import dict_row
+
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
@@ -68,7 +73,6 @@ def create_app(
     checkpointer=None,
 ) -> FastAPI:
     dsn = dsn or db.default_dsn()
-    app = FastAPI(title="ApplyPilot")
     # 工作流线程的异常登记表：run_id -> 错误信息
     run_errors: dict[str, str] = {}
 
@@ -84,19 +88,77 @@ def create_app(
                 raise HTTPException(503, str(e)) from e
         return adapter
 
-    # checkpointer 在应用创建时初始化一次，避免多线程惰性创建
-    # 并发执行 setup() 导致重复建表。
-    if checkpointer is None:
-        import psycopg
-        from psycopg.rows import dict_row
+    owned_connection = None
 
-        _cp_conn = psycopg.connect(
-            dsn, autocommit=True, prepare_threshold=0, row_factory=dict_row
-        )
-        checkpointer = PostgresSaver(_cp_conn)
-        checkpointer.setup()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        nonlocal checkpointer, owned_connection
+        owned_connection = None
+        injected = checkpointer is not None
+        try:
+            if not injected:
+                try:
+                    owned_connection = psycopg.connect(
+                        dsn, autocommit=True, prepare_threshold=0,
+                        row_factory=dict_row, connect_timeout=3,
+                        options="-c statement_timeout=5000",
+                    )
+                    candidate = PostgresSaver(owned_connection)
+                    candidate.setup()
+                    checkpointer = candidate
+                except psycopg.Error as exc:
+                    # Do not log the exception text: it can contain DSN credentials.
+                    logging.getLogger(__name__).error(
+                        "Checkpoint initialization failed (%s); restart after fixing database",
+                        type(exc).__name__,
+                    )
+                    if owned_connection is not None:
+                        owned_connection.close()
+                        owned_connection = None
+            yield
+        finally:
+            if owned_connection is not None:
+                owned_connection.close()
+            if not injected:
+                checkpointer = None
+
+    app = FastAPI(title="ApplyPilot", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def require_initialized_checkpoint(request: Request, call_next):
+        path = request.url.path
+        if checkpointer is None and (
+            path == "/" or path.startswith(("/api/", "/review/"))
+        ):
+            return JSONResponse({"detail": "database_not_ready"}, status_code=503)
+        return await call_next(request)
+
+    @app.get("/health/live")
+    def liveness():
+        return {"status": "ok"}
+
+    @app.get("/health/ready")
+    def readiness():
+        if checkpointer is None:
+            return JSONResponse({"status": "not_ready"}, status_code=503)
+        try:
+            if owned_connection is not None:
+                owned_connection.execute("SELECT 1 FROM checkpoints LIMIT 0")
+            with db.connect(dsn, connect_timeout=3, options="-c statement_timeout=2000") as conn:
+                row = conn.execute(
+                    "SELECT bool_and(to_regclass(name) IS NOT NULL) AS ready "
+                    "FROM unnest(ARRAY['facts','jobs','resume_versions','resume_claims',"
+                    "'workflow_runs','applications','audit_events']) AS tables(name)"
+                ).fetchone()
+                if not row["ready"]:
+                    return JSONResponse({"status": "not_ready"}, status_code=503)
+        except psycopg.Error:
+            return JSONResponse({"status": "not_ready"}, status_code=503)
+        return {"status": "ready"}
 
     def get_checkpointer():
+        if checkpointer is None:
+            raise HTTPException(503, "database_not_ready")
         return checkpointer
 
     def get_graph():

@@ -20,8 +20,8 @@ def default_dsn() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DSN)
 
 
-def connect(dsn: str | None = None) -> psycopg.Connection:
-    return psycopg.connect(dsn or default_dsn(), row_factory=dict_row, autocommit=True)
+def connect(dsn: str | None = None, **kwargs) -> psycopg.Connection:
+    return psycopg.connect(dsn or default_dsn(), row_factory=dict_row, autocommit=True, **kwargs)
 
 
 def init_schema(conn: psycopg.Connection) -> None:

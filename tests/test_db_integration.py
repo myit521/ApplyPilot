@@ -10,6 +10,8 @@ from testcontainers.postgres import PostgresContainer
 from applypilot import db, facts_repo, search
 from applypilot.schemas import Fact, FactType, JobRequirements, KeywordRequirement
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(scope="module")
 def conn():

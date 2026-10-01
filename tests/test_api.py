@@ -14,6 +14,8 @@ from testcontainers.postgres import PostgresContainer
 from applypilot import db
 from applypilot.api import create_app
 
+pytestmark = pytest.mark.integration
+
 JD_JSON = json.dumps({
     "job_title": "Java 后端开发",
     "required": ["熟悉 Java"],
@@ -169,3 +171,19 @@ def test_unknown_resources_404(client: TestClient):
     assert client.get("/api/workflows/wf_missing").status_code == 404
     assert client.put("/api/facts/f_missing", json={"enabled": False}).status_code == 404
     assert client.get("/api/resume-versions/999/docx").status_code == 404
+
+
+def test_runtime_readiness_with_real_database(client):
+    assert client.get("/health/live").status_code == 200
+    assert client.get("/health/ready").json() == {"status": "ready"}
+
+
+def test_readiness_rejects_uninitialized_business_schema():
+    with PostgresContainer("pgvector/pgvector:pg16") as pg:
+        dsn = pg.get_connection_url().replace("postgresql+psycopg2://", "postgresql://")
+        with TestClient(create_app(dsn=dsn)) as client:
+            assert client.get("/health/live").status_code == 200
+            assert client.get("/health/ready").status_code == 503
+            with db.connect(dsn) as conn:
+                db.init_schema(conn)
+            assert client.get("/health/ready").status_code == 200

@@ -82,7 +82,7 @@ def test_readiness_checks_current_database_and_schema(monkeypatch):
     from applypilot import api
     connection = MagicMock()
     connection.__enter__.return_value = connection
-    connection.execute.return_value.fetchone.return_value = {"ready": True}
+    connection.execute.return_value.fetchone.return_value = {"ready": True, "name": "schema_migrations"}
     monkeypatch.setattr(api.db, "connect", lambda *a, **k: connection)
     with TestClient(api.create_app(checkpointer=MemorySaver())) as client:
         assert client.get("/health/ready").status_code == 200
@@ -100,7 +100,7 @@ def test_readiness_detects_lost_checkpoint_connection(monkeypatch):
     checkpoint_conn = MagicMock()
     probe_conn = MagicMock()
     probe_conn.__enter__.return_value = probe_conn
-    probe_conn.execute.return_value.fetchone.return_value = {"ready": True}
+    probe_conn.execute.return_value.fetchone.return_value = {"ready": True, "name": "schema_migrations"}
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: checkpoint_conn)
     monkeypatch.setattr(api.db, "connect", lambda *a, **k: probe_conn)
     monkeypatch.setattr(api, "PostgresSaver", lambda conn: MagicMock())

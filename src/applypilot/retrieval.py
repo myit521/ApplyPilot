@@ -44,7 +44,7 @@ class ScoredFact(BaseModel):
 
 def hard_filter(facts: list[Fact]) -> list[Fact]:
     """元数据硬过滤：只有启用状态的事实允许进入检索。"""
-    return [f for f in facts if f.enabled]
+    return [f for f in facts if f.enabled and f.status == "confirmed"]
 
 
 def merge_and_score(

@@ -50,9 +50,18 @@ def extract_facts(resume_text: str, adapter: ModelAdapter) -> tuple[list[Fact], 
 
     facts: list[Fact] = []
     skipped = 0
-    for item in data.get("facts", []):
+    if not isinstance(data, dict) or not isinstance(data.get("facts"), list):
+        raise FactImportError("facts must be an array")
+    for raw in data["facts"]:
+        if not isinstance(raw, dict):
+            skipped += 1
+            continue
+        allowed = {"fact_type", "source_name", "content", "skills", "metrics",
+                   "start_date", "end_date", "school", "degree", "major"}
+        item = {k: v for k, v in raw.items() if k in allowed}
+        item["origin"] = "model"
         item["id"] = f"fact_{uuid.uuid4().hex[:12]}"
-        item.setdefault("evidence_type", "self_report")
+        item["evidence_type"] = "self_report"
         try:
             facts.append(Fact.model_validate(item))
         except ValidationError:

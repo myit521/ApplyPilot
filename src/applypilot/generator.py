@@ -14,7 +14,8 @@ from pydantic import ValidationError
 
 from .jd_parser import JDParseError, _extract_json, _summarize
 from .model_adapter import ModelAdapter
-from .schemas import Fact, JobRequirements, ResumeSections
+from .schemas import Fact, JobRequirements, ResumeSections, ResumeClaim
+from .retrieval import hard_filter
 
 
 class ResumeGenerationError(Exception):
@@ -43,7 +44,7 @@ def build_prompt(requirements: JobRequirements, facts: list[Fact]) -> tuple[str,
 }}"""
 
     fact_lines = []
-    for f in facts:
+    for f in hard_filter(facts):
         metrics = f"；可用量化指标：{'、'.join(f.metrics)}" if f.metrics else ""
         fact_lines.append(
             f"- fact_id: {f.id}｜类型: {f.fact_type}｜来源: {f.source_name}\n"
@@ -76,7 +77,12 @@ def generate_resume(
     output = adapter.complete(system, user)
     try:
         data = json.loads(_extract_json(output))
-        return ResumeSections.model_validate(data["sections"])
+        sections = ResumeSections.model_validate(data["sections"])
+        sections.education = [
+            ResumeClaim(text=" ".join(str(v) for v in [f.school or f.source_name, f.degree, f.major, f.start_date, f.end_date, f.content] if v), fact_ids=[f.id])
+            for f in hard_filter(facts) if f.fact_type == "education"
+        ]
+        return sections
     except (JDParseError, KeyError, TypeError, json.JSONDecodeError, ValidationError) as e:
         raise ResumeGenerationError(
             f"生成结果结构不合法: {e}", _summarize(output)

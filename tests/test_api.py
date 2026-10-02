@@ -99,8 +99,11 @@ def test_full_api_flow(client: TestClient):
     # 2. 查询与修改事实
     facts = client.get("/api/facts").json()
     assert len(facts) == 1
-    updated = client.put(f"/api/facts/{fact['id']}", json={"evidence_ref": "6671a45"})
+    updated = client.put(f"/api/facts/{fact['id']}", json={"expected_revision": fact["revision"], "evidence_ref": "6671a45"})
     assert updated.json()["evidence_ref"] == "6671a45"
+
+    confirmed = client.post(f"/api/facts/{fact['id']}/confirm", json={"expected_revision": updated.json()["revision"]})
+    assert confirmed.json()["status"] == "confirmed"
 
     # 3. 保存并解析 JD
     resp = client.post("/api/jobs", json={"raw_text": "招聘 Java 后端工程师"})
@@ -169,7 +172,7 @@ def test_workflow_idempotency(client: TestClient):
 def test_unknown_resources_404(client: TestClient):
     assert client.get("/api/jobs/999/match").status_code == 404
     assert client.get("/api/workflows/wf_missing").status_code == 404
-    assert client.put("/api/facts/f_missing", json={"enabled": False}).status_code == 404
+    assert client.put("/api/facts/f_missing", json={"expected_revision": 1, "enabled": False}).status_code == 404
     assert client.get("/api/resume-versions/999/docx").status_code == 404
 
 

@@ -104,6 +104,9 @@ def validate_claim(
                     suggestion="改用其他启用状态的事实，或删除该表述",
                 )
             )
+        elif fact.status != "confirmed":
+            errors.append(ValidationError(code=ErrorCode.FACT_UNCONFIRMED, claim_text=claim.text,
+                                          detail=f"Fact {fid} requires human confirmation"))
         else:
             cited.append(fact)
 
@@ -113,6 +116,12 @@ def validate_claim(
     # 数字边界：表述中的每个数字必须逐字出现在被引用事实的 metrics 或 content 中
     allowed_text = " ".join(
         [m for f in cited for m in f.metrics] + [f.content for f in cited]
+    )
+    # Education is rendered directly from these confirmed structured fields.
+    allowed_text += " " + " ".join(
+        str(value) for f in cited if f.fact_type == FactType.EDUCATION
+        for value in [f.school, f.source_name, f.degree, f.major, f.start_date, f.end_date]
+        if value
     )
     for number in set(_NUMBER_RE.findall(claim.text)):
         if number.strip() not in allowed_text:

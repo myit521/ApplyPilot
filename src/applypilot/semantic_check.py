@@ -30,7 +30,16 @@ def _build_user_prompt(claims: list[ResumeClaim], facts_by_id: dict[str, Fact]) 
     parts = []
     for claim in claims:
         cited = [facts_by_id[fid] for fid in claim.fact_ids if fid in facts_by_id]
-        fact_text = "\n".join(f"  - {f.content}（技能: {', '.join(f.skills)}）" for f in cited)
+        fact_lines = []
+        for fact in cited:
+            line = f"  - {fact.content}（技能: {', '.join(fact.skills)}）"
+            if fact.fact_type == "education":
+                education = fact.model_dump(mode="json", include={
+                    "source_name", "school", "degree", "major", "start_date", "end_date",
+                })
+                line += "\n    教育资料: " + json.dumps(education, ensure_ascii=False)
+            fact_lines.append(line)
+        fact_text = "\n".join(fact_lines)
         parts.append(f"表述: {claim.text}\n引用事实:\n{fact_text}")
     return "\n\n".join(parts)
 

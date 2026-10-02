@@ -44,7 +44,7 @@ flowchart LR
 
 | 概念 | 必要数据 | 不变量 |
 | --- | --- | --- |
-| ProfileRevision | 联系方式、教育、修订与确认状态 | 提取结果默认草稿 |
+| ProfileRevision | 联系方式、修订与确认状态；关联教育事实 | 联系资料独立修订；教育唯一来源为 FactRevision |
 | FactRevision | 动作、贡献范围、技能、数字、来源 | 模型不能把 self_report 升级为已验证证据 |
 | Job | 原始 JD、公司、职位、来源和时间 | 保留原文，解析可纠正 |
 | MatchReport | 要求、证据、状态和解释 | 支持/部分支持/无证据/未知分开 |

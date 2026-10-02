@@ -18,6 +18,7 @@ REQUIREMENTS = JobRequirements(
 
 FACTS = [
     Fact(
+        status="confirmed",
         id="fact_edu",
         fact_type=FactType.EDUCATION,
         source_name="武汉轻工大学",
@@ -25,6 +26,7 @@ FACTS = [
         skills=[],
     ),
     Fact(
+        status="confirmed",
         id="fact_01",
         fact_type=FactType.INTERNSHIP,
         source_name="亚信实习",
@@ -33,6 +35,7 @@ FACTS = [
         metrics=["6 个批量接口"],
     ),
     Fact(
+        status="confirmed",
         id="fact_02",
         fact_type=FactType.PROJECT,
         source_name="商城项目",

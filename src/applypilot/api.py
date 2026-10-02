@@ -23,7 +23,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
-from pydantic import BaseModel
+from datetime import date
+from pydantic import BaseModel, ConfigDict, Field, ValidationError as PydanticValidationError
 
 from . import db, facts_repo, search
 
@@ -33,7 +34,7 @@ from .docx_export import render_docx
 from .fact_import import FactImportError, extract_facts
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelError
-from .schemas import Fact, FactType, JobRequirements, ResumeSections
+from .schemas import Fact, FactType, EvidenceType, ProfileData, JobRequirements, ResumeSections
 from .workflow import WorkflowStatus, build_graph
 
 
@@ -41,14 +42,45 @@ class FactImportRequest(BaseModel):
     resume_text: str
 
 
-class FactUpdateRequest(BaseModel):
+class RevisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(ge=0)
+
+
+class FactCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    fact_type: FactType
+    source_name: str
+    content: str
+    school: str = ""
+    degree: str = ""
+    major: str = ""
+    start_date: date | None = None
+    end_date: date | None = None
+    skills: list[str] = Field(default_factory=list)
+    metrics: list[str] = Field(default_factory=list)
+    evidence_type: EvidenceType = EvidenceType.SELF_REPORT
+    evidence_ref: str = ""
+
+
+class FactUpdateRequest(RevisionRequest):
+    fact_type: FactType | None = None
     source_name: str | None = None
     content: str | None = None
+    school: str | None = None
+    degree: str | None = None
+    major: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
     skills: list[str] | None = None
     metrics: list[str] | None = None
-    evidence_type: str | None = None
+    evidence_type: EvidenceType | None = None
     evidence_ref: str | None = None
     enabled: bool | None = None
+
+
+class ProfileUpdateRequest(RevisionRequest):
+    profile: ProfileData
 
 
 class JobCreateRequest(BaseModel):
@@ -150,7 +182,7 @@ def create_app(
                     "FROM unnest(ARRAY['facts','jobs','resume_versions','resume_claims',"
                     "'workflow_runs','applications','audit_events']) AS tables(name)"
                 ).fetchone()
-                if not row["ready"]:
+                if not row["ready"] or not db.schema_ready(conn):
                     return JSONResponse({"status": "not_ready"}, status_code=503)
         except psycopg.Error:
             return JSONResponse({"status": "not_ready"}, status_code=503)
@@ -187,7 +219,7 @@ def create_app(
             raise HTTPException(422, str(e)) from e
         conn = get_conn()
         for fact in facts:
-            facts_repo.upsert_fact(conn, fact)
+            facts_repo.create_fact(conn, fact)
         return {
             "created": len(facts),
             "skipped": skipped,
@@ -199,16 +231,71 @@ def create_app(
         facts = facts_repo.list_facts(get_conn(), fact_type=fact_type, enabled_only=enabled)
         return [f.model_dump(mode="json") for f in facts]
 
-    @app.put("/api/facts/{fact_id}")
-    def update_fact(fact_id: str, req: FactUpdateRequest) -> dict:
-        conn = get_conn()
-        fact = facts_repo.get_fact(conn, fact_id)
-        if fact is None:
-            raise HTTPException(404, f"事实 {fact_id} 不存在")
-        for field, value in req.model_dump(exclude_none=True).items():
-            setattr(fact, field, value)
-        facts_repo.upsert_fact(conn, fact)
+    @app.exception_handler(facts_repo.RevisionConflict)
+    async def revision_conflict(request, exc):
+        return JSONResponse({"detail": "Revision changed; reload and review before saving or confirming."}, status_code=409)
+
+    @app.exception_handler(PydanticValidationError)
+    async def invalid_fact(request, exc):
+        return JSONResponse({"detail": "Invalid or blank fact fields"}, status_code=422)
+
+    @app.post("/api/facts", status_code=201)
+    def create_fact(req: FactCreateRequest):
+        fact = Fact(id="fact_"+uuid.uuid4().hex, **req.model_dump())
+        with get_conn() as conn:
+            facts_repo.create_fact(conn, fact)
         return fact.model_dump(mode="json")
+
+    @app.put("/api/facts/{fact_id}")
+    def update_fact(fact_id: str, req: FactUpdateRequest):
+        changes = req.model_dump(exclude_unset=True, exclude={"expected_revision"})
+        with get_conn() as conn:
+            try:
+                fact = facts_repo.update_fact(conn, fact_id, req.expected_revision, changes)
+            except KeyError:
+                raise HTTPException(404, "Fact not found")
+        return fact.model_dump(mode="json")
+
+    @app.post("/api/facts/{fact_id}/confirm")
+    def confirm_fact(fact_id: str, req: RevisionRequest):
+        with get_conn() as conn:
+            try:
+                fact = facts_repo.update_fact(conn, fact_id, req.expected_revision, confirm=True)
+            except KeyError:
+                raise HTTPException(404, "Fact not found")
+        return fact.model_dump(mode="json")
+
+    @app.get("/api/facts/{fact_id}/revisions")
+    def fact_revisions(fact_id: str):
+        with get_conn() as conn:
+            return facts_repo.fact_history(conn, fact_id)
+
+    @app.get("/api/profile")
+    def profile():
+        with get_conn() as conn:
+            return facts_repo.get_profile(conn)
+
+    @app.put("/api/profile")
+    def update_profile(req: ProfileUpdateRequest):
+        with get_conn() as conn:
+            return facts_repo.update_profile(conn, req.expected_revision, req.profile)
+
+    @app.post("/api/profile/confirm")
+    def confirm_profile(req: RevisionRequest):
+        with get_conn() as conn:
+            try:
+                return facts_repo.update_profile(conn, req.expected_revision, confirm=True)
+            except KeyError:
+                raise HTTPException(404, "Save profile before confirming")
+
+    @app.get("/api/profile/revisions")
+    def profile_revisions():
+        with get_conn() as conn:
+            return facts_repo.profile_history(conn)
+
+    @app.get("/profile", response_class=HTMLResponse)
+    def profile_page(request: Request):
+        return TEMPLATES.TemplateResponse(request, "profile.html", {})
 
     # ---------- 职位 ----------
 
@@ -255,7 +342,7 @@ def create_app(
             return {"terms": terms, "candidates": []}
         placeholders = ",".join(["%s"] * len(hit_ids))
         rows = conn.execute(
-            f"SELECT * FROM facts WHERE id IN ({placeholders})", list(hit_ids)
+            f"SELECT * FROM facts WHERE enabled AND status='confirmed' AND id IN ({placeholders})", list(hit_ids)
         ).fetchall()
         facts = [Fact(**{k: r[k] for k in Fact.model_fields if k in r}) for r in rows]
         scored = search.merge_and_score(
@@ -360,6 +447,13 @@ def create_app(
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         if not state.next or state.next[0] != "approval":
             raise HTTPException(409, "工作流当前不在等待审批状态")
+
+        # A paused draft is bound to the retrieved fact revisions, including rejection/regeneration.
+        with get_conn() as conn:
+            for snapshot in state.values.get("retrieved_facts", []):
+                current = facts_repo.get_fact(conn, snapshot.id)
+                if current is None or not current.enabled or current.status != "confirmed" or current.revision != snapshot.revision:
+                    raise HTTPException(409, "Facts changed; create a new workflow to retrieve current confirmed facts")
 
         graph.invoke(
             Command(resume={"approved": req.approved, "feedback": req.feedback}),

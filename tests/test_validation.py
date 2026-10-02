@@ -9,6 +9,7 @@ from applypilot.validation import validate_claims
 
 FACTS = [
     Fact(
+        status="confirmed",
         id="fact_intern_batch_01",
         fact_type=FactType.INTERNSHIP,
         source_name="亚信实习",
@@ -17,6 +18,7 @@ FACTS = [
         metrics=["6 个批量接口"],
     ),
     Fact(
+        status="confirmed",
         id="fact_intern_batch_02",
         fact_type=FactType.INTERNSHIP,
         source_name="亚信实习",
@@ -25,6 +27,7 @@ FACTS = [
         metrics=[],
     ),
     Fact(
+        status="confirmed",
         id="fact_project_mall_01",
         fact_type=FactType.PROJECT,
         source_name="商城项目",
@@ -33,6 +36,7 @@ FACTS = [
         metrics=[],
     ),
     Fact(
+        status="confirmed",
         id="fact_disabled",
         fact_type=FactType.SKILL,
         source_name="旧技能",
@@ -134,6 +138,7 @@ def test_specific_skill_tag_covers_generic_term():
     """更具体的技能标签（SQL预览）覆盖通用词（SQL）。"""
     facts = [
         Fact(
+        status="confirmed",
             id="f_sql",
             fact_type=FactType.INTERNSHIP,
             source_name="亚信实习",

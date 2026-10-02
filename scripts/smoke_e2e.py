@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 
@@ -63,6 +64,14 @@ def main() -> int:
     print(f"提取 {len(facts)} 条事实：")
     for f in facts:
         print(f"  - [{f['fact_type']}] {f['source_name']}: {f['content'][:40]}... 指标: {f['metrics']}")
+
+    print(json.dumps(facts, ensure_ascii=False, indent=2))
+    if input("Review all extracted facts above. Type CONFIRM to assert they match the source: ") != "CONFIRM":
+        print("Drafts retained. Review/edit at /profile before continuing.")
+        return 1
+    for fact in facts:
+        response = client.post(f"/api/facts/{fact['id']}/confirm", json={"expected_revision": fact['revision']})
+        response.raise_for_status()
 
     print("\n== 2. 保存并解析 JD ==")
     resp = client.post("/api/jobs", json={"raw_text": JD_TEXT})

@@ -32,6 +32,7 @@ def clean(conn):
 
 def make_fact(fid: str, content: str, skills: list[str], enabled: bool = True) -> Fact:
     return Fact(
+        status="confirmed",
         id=fid, fact_type=FactType.INTERNSHIP, source_name="亚信实习",
         content=content, skills=skills, enabled=enabled,
     )
@@ -39,25 +40,25 @@ def make_fact(fid: str, content: str, skills: list[str], enabled: bool = True) -
 
 def test_upsert_get_list(clean):
     conn = clean
-    facts_repo.upsert_fact(conn, make_fact("f1", "承担批量执行模块开发", ["Java", "MySQL"]))
-    facts_repo.upsert_fact(conn, make_fact("f2", "搭建集成测试基座", ["Docker"]))
+    facts_repo.create_fact(conn, make_fact("f1", "承担批量执行模块开发", ["Java", "MySQL"]))
+    facts_repo.create_fact(conn, make_fact("f2", "搭建集成测试基座", ["Docker"]))
 
     fact = facts_repo.get_fact(conn, "f1")
     assert fact.content == "承担批量执行模块开发"
     assert fact.skills == ["Java", "MySQL"]
     assert len(facts_repo.list_facts(conn)) == 2
 
-    # upsert 同一 id 更新而非重复插入
-    facts_repo.upsert_fact(conn, make_fact("f1", "更新后的内容", ["Java"]))
+    # Revision-aware edits update the row and append history.
+    facts_repo.update_fact(conn, "f1", 1, {"content": "更新后的内容", "skills": ["Java"]})
     assert facts_repo.get_fact(conn, "f1").content == "更新后的内容"
     assert len(facts_repo.list_facts(conn)) == 2
 
 
 def test_disable_not_delete(clean):
     conn = clean
-    facts_repo.upsert_fact(conn, make_fact("f1", "某事实", ["Java"]))
-    assert facts_repo.disable_fact(conn, "f1") is True
-    assert facts_repo.disable_fact(conn, "f_missing") is False
+    facts_repo.create_fact(conn, make_fact("f1", "某事实", ["Java"]))
+    assert facts_repo.disable_fact(conn, "f1", 1) is True
+    assert facts_repo.disable_fact(conn, "f_missing", 1) is False
 
     assert facts_repo.list_facts(conn) == []
     # 物理记录仍在，引用快照可追溯
@@ -66,9 +67,9 @@ def test_disable_not_delete(clean):
 
 def test_fulltext_hits_chinese_terms(clean):
     conn = clean
-    facts_repo.upsert_fact(conn, make_fact("f1", "使用 Java 和 MySQL 开发批量执行模块", ["Java", "MySQL"]))
-    facts_repo.upsert_fact(conn, make_fact("f2", "前端页面联调", ["Vue"]))
-    facts_repo.upsert_fact(conn, make_fact("f3", "Java 相关的另一段经历", ["Java"]))
+    facts_repo.create_fact(conn, make_fact("f1", "使用 Java 和 MySQL 开发批量执行模块", ["Java", "MySQL"]))
+    facts_repo.create_fact(conn, make_fact("f2", "前端页面联调", ["Vue"]))
+    facts_repo.create_fact(conn, make_fact("f3", "Java 相关的另一段经历", ["Java"]))
 
     hits = search.fulltext_hits(conn, ["Java", "MySQL"])
     assert set(hits) == {"f1", "f3"}
@@ -78,7 +79,7 @@ def test_fulltext_hits_chinese_terms(clean):
 
 def test_fulltext_excludes_disabled(clean):
     conn = clean
-    facts_repo.upsert_fact(conn, make_fact("f1", "Java 开发", ["Java"], enabled=False))
+    facts_repo.create_fact(conn, make_fact("f1", "Java 开发", ["Java"], enabled=False))
     assert search.fulltext_hits(conn, ["Java"]) == {}
 
 
@@ -87,8 +88,8 @@ def test_vector_hits_by_cosine(clean):
     dim = 512
     near = [1.0] + [0.0] * (dim - 1)
     far = [0.0, 1.0] + [0.0] * (dim - 2)
-    facts_repo.upsert_fact(conn, make_fact("f1", "语义相近", ["Java"]), embedding=near)
-    facts_repo.upsert_fact(conn, make_fact("f2", "语义相远", ["Vue"]), embedding=far)
+    facts_repo.create_fact(conn, make_fact("f1", "语义相近", ["Java"]), embedding=near)
+    facts_repo.create_fact(conn, make_fact("f2", "语义相远", ["Vue"]), embedding=far)
 
     hits = search.vector_hits(conn, near)
     assert list(hits)[0] == "f1"
@@ -100,8 +101,8 @@ def test_retriever_merges_fts_and_vector(clean):
     dim = 512
     emb = [1.0] + [0.0] * (dim - 1)
     # f1 只被全文命中；f2 只被向量命中（内容不含关键词）
-    facts_repo.upsert_fact(conn, make_fact("f1", "Java 批量执行", ["Java"]))
-    facts_repo.upsert_fact(conn, make_fact("f2", "与关键词无关的内容", ["Spring Boot"]), embedding=emb)
+    facts_repo.create_fact(conn, make_fact("f1", "Java 批量执行", ["Java"]))
+    facts_repo.create_fact(conn, make_fact("f2", "与关键词无关的内容", ["Spring Boot"]), embedding=emb)
 
     requirements = JobRequirements(
         job_title="Java 后端",

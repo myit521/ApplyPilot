@@ -6,6 +6,7 @@ from applypilot.schemas import Fact, FactType
 
 def make_fact(fid: str, skills: list[str], enabled: bool = True) -> Fact:
     return Fact(
+        status="confirmed",
         id=fid,
         fact_type=FactType.INTERNSHIP,
         source_name="测试来源",

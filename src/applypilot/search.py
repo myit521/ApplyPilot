@@ -41,7 +41,8 @@ def required_skill_terms(requirements: JobRequirements) -> list[str]:
 
 
 def fulltext_hits(
-    conn: psycopg.Connection, terms: list[str], limit: int = _CANDIDATE_LIMIT
+    conn: psycopg.Connection, terms: list[str], limit: int = _CANDIDATE_LIMIT,
+    exclude_education: bool = False,
 ) -> dict[str, float]:
     """全文命中：得分为关键词覆盖率（0,1]。"""
     terms = [t.strip() for t in terms if t.strip()]
@@ -60,13 +61,14 @@ def fulltext_hits(
                         WHERE p ILIKE concat('%%', s, '%%') ESCAPE '\\'
                       )
             ) AS matched
-            FROM facts WHERE enabled
+            FROM facts WHERE enabled AND status='confirmed'
+                AND (NOT %(exclude_education)s OR fact_type <> 'education')
         ) scored
         WHERE matched > 0
         ORDER BY score DESC, id
         LIMIT %(limit)s
         """,
-        {"patterns": patterns, "n": len(terms), "limit": limit},
+        {"patterns": patterns, "n": len(terms), "limit": limit, "exclude_education": exclude_education},
     ).fetchall()
     return {r["id"]: float(r["score"]) for r in rows}
 
@@ -75,6 +77,7 @@ def vector_hits(
     conn: psycopg.Connection,
     query_embedding: list[float],
     limit: int = _CANDIDATE_LIMIT,
+    exclude_education: bool = False,
 ) -> dict[str, float]:
     """向量命中：余弦相似度（0,1]。"""
     literal = _vector_literal(query_embedding)
@@ -82,11 +85,12 @@ def vector_hits(
         """
         SELECT id, 1 - (embedding <=> %(v)s::vector) AS score
         FROM facts
-        WHERE enabled AND embedding IS NOT NULL
+        WHERE enabled AND status='confirmed' AND embedding IS NOT NULL
+            AND (NOT %(exclude_education)s OR fact_type <> 'education')
         ORDER BY embedding <=> %(v)s::vector
         LIMIT %(limit)s
         """,
-        {"v": literal, "limit": limit},
+        {"v": literal, "limit": limit, "exclude_education": exclude_education},
     ).fetchall()
     return {r["id"]: float(r["score"]) for r in rows}
 
@@ -105,18 +109,18 @@ def _vector_literal(embedding: list[float]) -> str:
 def backfill_embeddings(conn: psycopg.Connection, provider: EmbeddingProvider) -> int:
     """为缺少向量的事实补算嵌入，返回补算条数。"""
     rows = conn.execute(
-        "SELECT id, content, skills FROM facts WHERE embedding IS NULL"
+        "SELECT id, revision, content, skills FROM facts WHERE enabled AND status='confirmed' AND embedding IS NULL"
     ).fetchall()
     filled = 0
     for r in rows:
         text = f"{r['content']} {' '.join(r['skills'])}"
         embedding = provider.embed(text)
         if embedding is not None:
-            conn.execute(
-                "UPDATE facts SET embedding = %s::vector WHERE id = %s",
-                (_vector_literal(embedding), r["id"]),
+            result = conn.execute(
+                "UPDATE facts SET embedding = %s::vector WHERE id = %s AND revision = %s AND enabled AND status='confirmed' AND embedding IS NULL",
+                (_vector_literal(embedding), r["id"], r["revision"]),
             )
-            filled += 1
+            filled += result.rowcount
     return filled
 
 
@@ -137,30 +141,33 @@ class PostgresFactRetriever:
 
     def __call__(self, requirements: JobRequirements) -> list[Fact]:
         terms = extract_terms(requirements)
-        fts = fulltext_hits(self.conn, terms)
+        fts = fulltext_hits(self.conn, terms, exclude_education=True)
 
         vec: dict[str, float] = {}
         embedding = self.embedding_provider.embed(_query_text(requirements))
         if embedding is not None:
             backfill_embeddings(self.conn, self.embedding_provider)
-            vec = vector_hits(self.conn, embedding)
+            vec = vector_hits(self.conn, embedding, exclude_education=True)
 
         hit_ids = set(fts) | set(vec)
+        from .facts_repo import list_facts
+        from .schemas import FactType
+        education = [f for f in list_facts(self.conn, FactType.EDUCATION) if f.status == "confirmed"]
         if not hit_ids:
-            return []
+            return education
         placeholders = ",".join(["%s"] * len(hit_ids))
         rows = self.conn.execute(
-            f"SELECT * FROM facts WHERE id IN ({placeholders})",
+            f"SELECT * FROM facts WHERE enabled AND status='confirmed' AND id IN ({placeholders})",
             list(hit_ids),
         ).fetchall()
         facts = [Fact(**{k: r[k] for k in Fact.model_fields if k in r}) for r in rows]
 
         scored = merge_and_score(
-            facts,
+            [fact for fact in facts if fact.fact_type != "education"],
             required_skills=required_skill_terms(requirements),
             fulltext_hits=fts,
             vector_hits=vec,
             weights=self.weights,
             top_k=self.top_k,
         )
-        return [s.fact for s in scored]
+        return [s.fact for s in scored] + education

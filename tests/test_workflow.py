@@ -15,6 +15,7 @@ from applypilot.workflow import MAX_VALIDATION_RETRIES, WorkflowStatus, build_gr
 
 FACTS = [
     Fact(
+        status="confirmed",
         id="fact_01",
         fact_type=FactType.INTERNSHIP,
         source_name="亚信实习",

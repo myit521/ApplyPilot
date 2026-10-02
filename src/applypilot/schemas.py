@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from datetime import date
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class FactType(StrEnum):
@@ -32,7 +33,15 @@ class EvidenceType(StrEnum):
 class Fact(BaseModel):
     """一条可独立核验的个人事实。"""
 
+    model_config = ConfigDict(validate_assignment=True)
+
     id: str
+    status: Literal["draft", "confirmed"] = "draft"
+    revision: int = Field(default=1, ge=1)
+    origin: Literal["human", "model", "legacy"] = "human"
+    school: str = ""
+    degree: str = ""
+    major: str = ""
     fact_type: FactType
     source_name: str = Field(description="经历来源，如 亚信实习、商城项目")
     content: str = Field(description="不可继续拆分的事实描述")
@@ -46,6 +55,29 @@ class Fact(BaseModel):
     evidence_type: EvidenceType = EvidenceType.SELF_REPORT
     evidence_ref: str = ""
     enabled: bool = True
+
+    @field_validator("id", "source_name", "content")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+
+class ProfileData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1)
+    email: str = ""
+    phone: str = ""
+    location: str = ""
+    website: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value
 
 
 class ResumeClaim(BaseModel):
@@ -110,6 +142,7 @@ class ErrorCode(StrEnum):
     MISSING_CITATION = "MISSING_CITATION"
     UNKNOWN_FACT = "UNKNOWN_FACT"
     FACT_DISABLED = "FACT_DISABLED"
+    FACT_UNCONFIRMED = "FACT_UNCONFIRMED"
     UNSUPPORTED_NUMBER = "UNSUPPORTED_NUMBER"
     UNSUPPORTED_SKILL = "UNSUPPORTED_SKILL"
     SEMANTIC_OVERRUN = "SEMANTIC_OVERRUN"

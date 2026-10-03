@@ -29,6 +29,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError as PydanticValidationError
 
 from . import db, facts_repo, search
+from .matching import build_match_report
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 from .deepseek_adapter import DeepSeekAdapter
@@ -378,7 +379,7 @@ def create_app(
             ).fetchone()
 
     @app.get("/api/jobs/{job_id}/match")
-    def match_job(job_id: int) -> dict:
+    def match_job(job_id: int, include_semantic: bool = False) -> dict:
         conn = get_conn()
         row = conn.execute("SELECT parsed FROM jobs WHERE id = %s", (job_id,)).fetchone()
         if row is None:
@@ -390,27 +391,49 @@ def create_app(
         terms = search.extract_terms(requirements)
         fts = search.fulltext_hits(conn, terms)
         vec: dict[str, float] = {}
-        embedding = get_embeddings().embed(search._query_text(requirements))
-        if embedding is not None:
-            search.backfill_embeddings(conn, get_embeddings())
-            vec = search.vector_hits(conn, embedding)
+        if include_semantic:
+            embeddings = get_embeddings()
+            embedding = embeddings.embed(search._query_text(requirements))
+            if embedding is not None:
+                search.backfill_embeddings(conn, embeddings)
+                vec = search.vector_hits(conn, embedding)
         hit_ids = set(fts) | set(vec)
-        if not hit_ids:
-            return {"terms": terms, "candidates": []}
-        placeholders = ",".join(["%s"] * len(hit_ids))
-        rows = conn.execute(
-            f"SELECT * FROM facts WHERE enabled AND status='confirmed' AND id IN ({placeholders})", list(hit_ids)
-        ).fetchall()
-        facts = [Fact(**{k: r[k] for k in Fact.model_fields if k in r}) for r in rows]
-        scored = search.merge_and_score(
-            facts,
-            required_skills=search.required_skill_terms(requirements),
-            fulltext_hits=fts,
-            vector_hits=vec,
-        )
+        candidates = []
+        scored = []
+        if hit_ids:
+            placeholders = ",".join(["%s"] * len(hit_ids))
+            rows = conn.execute(
+                f"SELECT * FROM facts WHERE enabled AND status='confirmed' AND id IN ({placeholders})", list(hit_ids)
+            ).fetchall()
+            facts = [Fact(**{k: r[k] for k in Fact.model_fields if k in r}) for r in rows]
+            scored = search.merge_and_score(
+                facts,
+                required_skills=search.required_skill_terms(requirements),
+                fulltext_hits=fts,
+                vector_hits=vec,
+            )
+            candidates = [s.model_dump(mode="json") for s in scored]
+        columns = ", ".join(Fact.model_fields)
+        with get_conn() as conn:
+            fact_rows = conn.execute(
+                f"SELECT {columns} FROM facts WHERE enabled AND status='confirmed' ORDER BY id"
+            ).fetchall()
+        confirmed_facts = [Fact(**{k: r[k] for k in Fact.model_fields if k in r}) for r in fact_rows]
+        report = build_match_report(requirements, confirmed_facts)
+        evidence_ids = {
+            evidence["fact_id"]
+            for item in report["requirements"]
+            for evidence in item["evidence"]
+        }
+        semantic_candidates = [
+            s.model_dump(mode="json") for s in scored
+            if s.fact.id in vec and s.fact.id not in evidence_ids
+        ]
         return {
             "terms": terms,
-            "candidates": [s.model_dump(mode="json") for s in scored],
+            "candidates": candidates,
+            **report,
+            "semantic_candidates": semantic_candidates,
         }
 
     # ---------- 工作流 ----------

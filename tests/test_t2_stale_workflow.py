@@ -58,7 +58,7 @@ def test_changed_source_blocks_stale_workflow(runtime, mutation, approved):
     response = client.post(path + "/confirm", json={"expected_revision": fact["revision"]})
     assert response.status_code == 200, response.text
     confirmed = response.json()
-    job = client.post("/api/jobs", json={"raw_text": "Python developer"}).json()
+    job = client.post("/api/jobs", json={"title": "Python Developer", "company": "Example", "raw_text": "Python developer"}).json()
     response = client.post("/api/workflows", json={"job_id": job["id"]})
     assert response.status_code == 202, response.text
     run_id = response.json()["run_id"]

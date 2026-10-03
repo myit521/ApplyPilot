@@ -106,11 +106,12 @@ def test_full_api_flow(client: TestClient):
     assert confirmed.json()["status"] == "confirmed"
 
     # 3. 保存并解析 JD
-    resp = client.post("/api/jobs", json={"raw_text": "招聘 Java 后端工程师"})
+    resp = client.post("/api/jobs", json={"title": "Java 后端", "company": "模拟公司", "raw_text": "招聘 Java 后端工程师"})
     assert resp.status_code == 201
     job = resp.json()
+    assert job["parsed"] is None
+    job = client.post(f"/api/jobs/{job['id']}/parse").json()
     assert job["parsed"]["job_title"] == "Java 后端开发"
-    assert job["parse_error"] is None
 
     # 4. 岗位匹配
     match = client.get(f"/api/jobs/{job['id']}/match").json()
@@ -153,7 +154,7 @@ def test_full_api_flow(client: TestClient):
 
 
 def test_workflow_idempotency(client: TestClient):
-    resp = client.post("/api/jobs", json={"raw_text": "另一条 JD"})
+    resp = client.post("/api/jobs", json={"title": "Java 后端", "company": "模拟公司", "raw_text": "另一条 JD"})
     job_id = resp.json()["id"]
 
     resp1 = client.post(

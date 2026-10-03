@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApplyPilot 职位录入与历史</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+h1 { font-size: 1.4rem; }
+label { display: block; margin: .8rem 0; }
+input, textarea { display: block; box-sizing: border-box; width: 100%; padding: .5rem; }
+textarea { min-height: 12rem; }
+button { padding: .45rem .8rem; margin: .2rem; cursor: pointer; }
+button:disabled { cursor: default; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f5f5f5; padding: 1rem; }
+.error { color: #b91c1c; }
+#detail { overflow-wrap: anywhere; }
+a { color: #1d4ed8; }
+</style>
+</head>
+<body>
+<p><a href="/">返回审核台</a></p>
+<h1>职位录入与历史</h1>
+<p>手动粘贴职位描述。来源与链接仅作为记录保存，不会自动获取网页。保存后可按需调用模型解析。</p>
+<form id="job-form">
+<label for="title">岗位名称（必填，最多 200 字）<input id="title" name="title" required maxlength="200"></label>
+<label for="company">公司名称（必填，最多 200 字）<input id="company" name="company" required maxlength="200"></label>
+<label for="source">来源（必填，最多 100 字）<input id="source" name="source" required maxlength="100" value="paste"></label>
+<label for="url">来源链接（可选，仅 HTTP/HTTPS）<input id="url" name="url" maxlength="2048" placeholder="https://example.com/jobs/123"></label>
+<label for="raw_text">职位描述 JD（必填，最多 30000 字）<textarea id="raw_text" name="raw_text" required maxlength="30000"></textarea></label>
+<button id="save-job" type="submit">保存职位</button>
+</form>
+<p id="save-status" role="status" aria-live="polite"></p>
+<h2>历史职位</h2>
+<p id="history-status" role="status" aria-live="polite"></p>
+<table><thead><tr><th>ID</th><th>岗位</th><th>公司</th><th>来源</th><th>创建时间</th><th>操作</th></tr></thead><tbody id="history"></tbody></table>
+<p><button id="previous" type="button" disabled>上一页</button><span id="page-info"></span><button id="next" type="button" disabled>下一页</button></p>
+<section id="detail" hidden>
+<h2>职位详情</h2>
+<dl><dt>岗位</dt><dd id="detail-title"></dd><dt>公司</dt><dd id="detail-company"></dd><dt>来源</dt><dd id="detail-source"></dd><dt>来源链接</dt><dd id="detail-url"></dd><dt>创建时间</dt><dd id="detail-created"></dd></dl>
+<h3>原始 JD</h3><pre id="detail-raw"></pre>
+<button id="parse-job" type="button">调用模型解析</button>
+<p id="parse-status" role="status" aria-live="polite"></p>
+<h3>解析结果</h3><pre id="detail-parsed"></pre>
+</section>
+<script>
+const el = id => document.getElementById(id);
+let offset = 0;
+const limit = 20;
+let selected = null;
+let detailRequest = 0;
+function status(id, message, error = false) {
+  el(id).textContent = message;
+  el(id).className = error ? 'error' : '';
+}
+async function request(url, options) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) {
+    const message = Array.isArray(data.detail) ? data.detail.map(item => item.loc.slice(1).join('.') + ': ' + item.msg).join('；') : data.detail;
+    throw new Error(message || '请求失败，请重试');
+  }
+  return data;
+}
+function showDetail(job) {
+  selected = job;
+  el('detail').hidden = false;
+  for (const [key, value] of Object.entries({title: job.title || '（未填写）', company: job.company || '（未填写）', source: job.source, url: job.url || '（无）', created: job.created_at, raw: job.raw_text, parsed: job.parsed ? JSON.stringify(job.parsed, null, 2) : '尚未解析'})) {
+    el('detail-' + key).textContent = value;
+  }
+  el('parse-job').disabled = false;
+}
+async function openDetail(id) {
+  const token = ++detailRequest;
+  status('parse-status', '正在读取职位…');
+  el('parse-job').disabled = true;
+  try {
+    const job = await request('/api/jobs/' + id);
+    if (token !== detailRequest) return;
+    showDetail(job);
+    status('parse-status', '');
+  } catch (error) {
+    if (token === detailRequest) status('parse-status', error.message, true);
+  }
+}
+async function loadHistory() {
+  el('previous').disabled = true;
+  el('next').disabled = true;
+  status('history-status', '正在加载…');
+  try {
+    const page = await request('/api/jobs?limit=' + limit + '&offset=' + offset);
+    el('history').replaceChildren();
+    for (const job of page.items) {
+      const row = document.createElement('tr');
+      for (const value of [job.id, job.title || '（未填写）', job.company || '（未填写）', job.source, job.created_at]) {
+        const cell = document.createElement('td');
+        cell.textContent = value;
+        row.append(cell);
+      }
+      const cell = document.createElement('td');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = '查看详情';
+      button.setAttribute('aria-label', '查看职位 ' + job.id + ' 详情');
+      button.onclick = () => openDetail(job.id);
+      cell.append(button);
+      row.append(cell);
+      el('history').append(row);
+    }
+    el('page-info').textContent = ' 第 ' + (Math.floor(offset / limit) + 1) + ' 页，共 ' + page.total + ' 条 ';
+    el('previous').disabled = offset === 0;
+    el('next').disabled = offset + limit >= page.total;
+    status('history-status', page.items.length ? '' : '暂无职位');
+  } catch (error) {
+    status('history-status', error.message, true);
+  }
+}
+el('previous').onclick = () => { offset = Math.max(0, offset - limit); loadHistory(); };
+el('next').onclick = () => { offset += limit; loadHistory(); };
+el('job-form').onsubmit = async event => {
+  event.preventDefault();
+  el('save-job').disabled = true;
+  status('save-status', '正在保存…');
+  const data = Object.fromEntries(new FormData(event.target));
+  try {
+    const job = await request('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+    ++detailRequest;
+    showDetail(job);
+    status('parse-status', '');
+    status('save-status', '职位已保存，编号 ' + job.id);
+    event.target.reset();
+    offset = 0;
+    await loadHistory();
+  } catch (error) {
+    status('save-status', error.message, true);
+  } finally {
+    el('save-job').disabled = false;
+  }
+};
+el('parse-job').onclick = async () => {
+  if (!selected) return;
+  const id = selected.id;
+  const token = ++detailRequest;
+  el('parse-job').disabled = true;
+  status('parse-status', '模型解析中…');
+  try {
+    const job = await request('/api/jobs/' + id + '/parse', {method: 'POST'});
+    if (token !== detailRequest) return;
+    showDetail(job);
+    status('parse-status', '解析完成');
+  } catch (error) {
+    if (token === detailRequest) status('parse-status', error.message, true);
+  } finally {
+    if (token === detailRequest) el('parse-job').disabled = false;
+  }
+};
+loadHistory();
+</script>
+</body>
+</html>

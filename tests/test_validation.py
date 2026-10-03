@@ -4,8 +4,10 @@
 人为加入不存在的技能或量化数据时，校验必须拒绝结果。
 """
 
-from applypilot.schemas import Fact, FactType, ResumeClaim
-from applypilot.validation import validate_claims
+import pytest
+
+from applypilot.schemas import Fact, FactType, ResumeClaim, ResumeSections
+from applypilot.validation import validate_claims, validate_sections
 
 FACTS = [
     Fact(
@@ -87,6 +89,60 @@ def test_fabricated_number_rejected():
     assert "UNSUPPORTED_NUMBER" in [e.code for e in errors]
 
 
+def test_number_must_match_the_complete_numeric_token():
+    fact = Fact(
+        status="confirmed", id="sixteen", fact_type=FactType.PROJECT,
+        source_name="演示项目", content="交付 16 个接口", metrics=["16 个接口"],
+    )
+    claims = [ResumeClaim(text="负责 6 个接口", fact_ids=["sixteen"])]
+    errors = validate_claims(claims, [fact])
+    assert "UNSUPPORTED_NUMBER" in [e.code for e in errors]
+
+
+def test_number_does_not_match_inside_comma_grouped_value():
+    fact = Fact(
+        status="confirmed", id="grouped", fact_type=FactType.PROJECT,
+        source_name="演示项目", content="处理 6,000 条记录",
+    )
+    errors = validate_claims(
+        [ResumeClaim(text="处理 6 条记录", fact_ids=["grouped"])], [fact]
+    )
+    assert "UNSUPPORTED_NUMBER" in [e.code for e in errors]
+
+
+def test_comma_separated_claim_numbers_are_checked_individually():
+    fact = Fact(
+        status="confirmed", id="seven-only", fact_type=FactType.PROJECT,
+        source_name="演示项目", content="负责 7 项改进",
+    )
+    errors = validate_claims(
+        [ResumeClaim(text="负责 6, 7 项改进", fact_ids=["seven-only"])], [fact]
+    )
+    assert "UNSUPPORTED_NUMBER" in [e.code for e in errors]
+
+
+def test_supported_comma_separated_claim_numbers_pass():
+    fact = Fact(
+        status="confirmed", id="six-and-seven", fact_type=FactType.PROJECT,
+        source_name="演示项目", content="负责 6, 7 项改进",
+    )
+    errors = validate_claims(
+        [ResumeClaim(text="负责 6, 7 项改进", fact_ids=["six-and-seven"])], [fact]
+    )
+    assert "UNSUPPORTED_NUMBER" not in [e.code for e in errors]
+
+
+def test_blank_claim_is_rejected():
+    claims = [ResumeClaim(text=" \n ", fact_ids=["fact_intern_batch_01"])]
+    errors = validate_claims(claims, FACTS)
+    assert "EMPTY_CLAIM" in [e.code for e in errors]
+
+
+def test_resume_with_no_claims_is_rejected():
+    errors = validate_sections(ResumeSections(), FACTS)
+    assert "EMPTY_RESUME" in [e.code for e in errors]
+
+
 def test_fabricated_skill_rejected():
     """人为加入引用事实之外的技能，校验必须拒绝。"""
     claims = [
@@ -97,6 +153,58 @@ def test_fabricated_skill_rejected():
     ]
     errors = validate_claims(claims, FACTS)
     assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+def test_java_does_not_support_javascript_claim():
+    facts = [Fact(
+        status="confirmed", id="java-only", fact_type=FactType.SKILL,
+        source_name="技能", content="掌握 Java", skills=["Java"],
+    )]
+    errors = validate_claims([ResumeClaim(text="熟悉 JavaScript", fact_ids=["java-only"])], facts)
+    assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+def test_sql_does_not_support_mysql_claim():
+    facts = [Fact(
+        status="confirmed", id="sql-only", fact_type=FactType.SKILL,
+        source_name="技能", content="编写 SQL 查询", skills=["SQL"],
+    )]
+    errors = validate_claims([ResumeClaim(text="熟悉 MySQL", fact_ids=["sql-only"])], facts)
+    assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+@pytest.mark.parametrize("skill", ["C++", "C#"])
+def test_c_does_not_support_punctuated_c_skill(skill):
+    facts = [Fact(
+        status="confirmed", id="c-only", fact_type=FactType.SKILL,
+        source_name="技能", content="掌握 C", skills=["C"],
+    )]
+    errors = validate_claims(
+        [ResumeClaim(text=f"熟悉 {skill}", fact_ids=["c-only"])], facts
+    )
+    assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+@pytest.mark.parametrize("skill", ["C++", "C#"])
+def test_punctuated_c_skill_does_not_support_generic_c(skill):
+    facts = [Fact(
+        status="confirmed", id="punctuated-c", fact_type=FactType.SKILL,
+        source_name="技能", content=f"掌握 {skill}", skills=[skill],
+    )]
+    errors = validate_claims(
+        [ResumeClaim(text="熟悉 C", fact_ids=["punctuated-c"])], facts
+    )
+    assert "UNSUPPORTED_SKILL" in [e.code for e in errors]
+
+
+def test_exact_cplusplus_skill_is_supported():
+    facts = [Fact(
+        status="confirmed", id="cplusplus", fact_type=FactType.SKILL,
+        source_name="技能", content="掌握 C++", skills=["C++"],
+    )]
+    assert validate_claims(
+        [ResumeClaim(text="熟悉 C++", fact_ids=["cplusplus"])], facts
+    ) == []
 
 
 def test_skill_supported_by_any_cited_fact_passes():

@@ -123,6 +123,21 @@ def test_validation_failure_exceeds_retries_goes_failed():
     assert adapter.generate_calls == MAX_VALIDATION_RETRIES + 1
 
 
+def test_empty_resume_cannot_reach_approval():
+    empty_resume = {"sections": {"education": [], "skills": [], "experience": []}}
+    adapter = ScriptedAdapter(
+        json.dumps(JD_REQUIREMENTS),
+        [json.dumps(empty_resume)] * (MAX_VALIDATION_RETRIES + 1),
+    )
+    graph, config = make_workflow(adapter)
+    graph.invoke({"jd_text": "某 JD", "validation_retries": 0}, config)
+
+    state = graph.get_state(config)
+    assert state.values["status"] == WorkflowStatus.FAILED
+    assert state.values["validation_errors"][0].code == "EMPTY_RESUME"
+    assert not state.next
+
+
 def test_human_rejection_regenerates():
     adapter = ScriptedAdapter(
         json.dumps(JD_REQUIREMENTS),

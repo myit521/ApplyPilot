@@ -2,6 +2,7 @@
 
 import json
 
+import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
 from applypilot.schemas import Fact, FactType, ResumeClaim
@@ -42,14 +43,43 @@ def test_no_violation_passes():
     assert errors == []
 
 
-def test_unparseable_output_does_not_block():
-    errors = semantic_check([OVERRUN_CLAIM], FACTS, SemanticAdapter("无法解析"))
+def test_complete_json_code_fence_passes():
+    errors = semantic_check(
+        [OVERRUN_CLAIM], FACTS, SemanticAdapter('```json\n{"violations": []}\n```')
+    )
     assert errors == []
+
+
+@pytest.mark.parametrize("output", [
+    "无法解析",
+    "",
+    '结果如下: {"violations": []}',
+    "{}",
+    '{"violations": null}',
+    '{"violations": [], "violations": [{"claim_text": "越界", "reason": "reason"}]}',
+    '{"violations": [{"claim_text": "表述"}]}',
+    '{"violations": [{"claim_text": "未知表述", "reason": "越界"}]}',
+])
+def test_invalid_review_output_blocks_as_unavailable(output):
+    errors = semantic_check([OVERRUN_CLAIM], FACTS, SemanticAdapter(output))
+    assert len(errors) == 1
+    assert errors[0].code == "SEMANTIC_REVIEW_UNAVAILABLE"
+
+
+def test_review_timeout_blocks_as_unavailable():
+    class TimeoutAdapter:
+        def complete(self, system: str, user: str) -> str:
+            raise TimeoutError("review timed out")
+
+    errors = semantic_check([OVERRUN_CLAIM], FACTS, TimeoutAdapter())
+    assert len(errors) == 1
+    assert errors[0].code == "SEMANTIC_REVIEW_UNAVAILABLE"
 
 
 def test_workflow_retries_on_semantic_overrun():
     """语义越界触发与确定性失败相同的退回-重试路径。"""
-    violations = json.dumps({"violations": [{"claim_text": "越界表述", "reason": "超出事实含义"}]})
+    claim_text = GOOD_CLAIM["sections"]["experience"][0]["text"]
+    violations = json.dumps({"violations": [{"claim_text": claim_text, "reason": "超出事实含义"}]})
     adapter = ScriptedAdapter(json.dumps(JD_REQUIREMENTS), [json.dumps(GOOD_CLAIM), json.dumps(GOOD_CLAIM)])
     # 第一次语义复核报越界，第二次放行
     outputs = [violations, '{"violations": []}']
@@ -69,3 +99,16 @@ def test_workflow_retries_on_semantic_overrun():
     assert state.values["status"] == WorkflowStatus.WAITING_APPROVAL
     assert state.values["validation_retries"] == 1
     assert adapter.generate_calls == 2
+
+
+def test_workflow_stops_for_manual_handling_when_semantic_review_is_unavailable():
+    adapter = ScriptedAdapter(json.dumps(JD_REQUIREMENTS), [json.dumps(GOOD_CLAIM)], semantic_output="")
+    graph = build_graph(adapter, retriever=lambda req: FACTS, checkpointer=MemorySaver())
+    config = {"configurable": {"thread_id": "review-unavailable"}}
+    graph.invoke({"jd_text": "某 JD", "validation_retries": 0}, config)
+
+    state = graph.get_state(config).values
+    assert state["status"] == WorkflowStatus.FAILED
+    assert state["validation_errors"][0].code == "SEMANTIC_REVIEW_UNAVAILABLE"
+    assert "人工" in state["error"]
+    assert adapter.generate_calls == 1

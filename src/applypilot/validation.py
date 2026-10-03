@@ -23,14 +23,17 @@ from .schemas import (
 )
 
 # 数字及其常见单位：6 个、82.4%、320ms、3 次、10w+ 等
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?(?:\s?(?:%|个|次|条|ms|s|w\+?|万|倍|人|天|月|年))?")
+_NUMBER_RE = re.compile(
+    r"(?<![\d.])(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+    r"(?:\s?(?:%|个|次|条|ms|s|w\+?|万|倍|人|天|月|年))?(?![\d.])"
+)
 
 # 常见技术词表。设计第 8.4 节要求"新出现的技能必须能在引用事实
 # 中找到"，但词表之外的技能无法识别——真实冒烟中"熟悉 Java"在
 # 事实库完全没有 Java 的情况下通过了校验。该词表与事实库技能
 # 标签取并集，用于识别表述中出现的技能词。
 TECH_LEXICON = {
-    "Java", "Python", "Golang", "Rust", "C++", "JavaScript", "TypeScript",
+    "Java", "Python", "Golang", "Rust", "C", "C++", "C#", "JavaScript", "TypeScript",
     "Spring Boot", "Spring Cloud", "Spring", "MySQL", "PostgreSQL", "Redis",
     "Kafka", "RabbitMQ", "Docker", "Kubernetes", "K8s", "LangGraph",
     "LangChain", "FastAPI", "Vue", "React", "Node.js", "Git", "Linux",
@@ -40,20 +43,27 @@ TECH_LEXICON = {
 
 
 def _term_in_text(term: str, text: str) -> bool:
-    if term.isascii():
-        return re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE) is not None
+    if re.search(r"[A-Za-z0-9]", term):
+        if term.strip().casefold() == "c":
+            return re.search(r"(?<![A-Za-z0-9])C(?![A-Za-z0-9+#])", text, re.IGNORECASE) is not None
+        return re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])",
+            text,
+            re.IGNORECASE,
+        ) is not None
     return term in text
 
 
 def _skill_covered(term: str, cited_skills: set[str]) -> bool:
-    """词 term 是否被任一引用事实的技能覆盖。
+    """判断技能词是否作为完整技术词出现在引用技能标签中。"""
+    if term.strip().casefold() == "c" or re.search(r"[+#]", term):
+        return any(term.strip().casefold() == skill.strip().casefold() for skill in cited_skills)
+    return any(_term_in_text(term, skill) for skill in cited_skills)
 
-    双向子串匹配：技能标签比词更具体（"SQL预览" 覆盖 "SQL"）或
-    更宽泛（"Spring" 覆盖 "Spring Boot"）都视为覆盖，边界情况
-    交由语义复核层判断。
-    """
-    folded = term.casefold()
-    return any(folded in s.casefold() or s.casefold() in folded for s in cited_skills)
+
+def _number_supported(number: str, allowed_text: str) -> bool:
+    normalized = re.sub(r"\s+", "", number)
+    return any(re.sub(r"\s+", "", token) == normalized for token in _NUMBER_RE.findall(allowed_text))
 
 
 def _cited_facts(claim: ResumeClaim, facts_by_id: dict[str, Fact]) -> list[Fact]:
@@ -71,6 +81,16 @@ def validate_claim(
     表述中出现的技能词；词表之外的词不参与技能边界检查。
     """
     errors: list[ValidationError] = []
+
+    if not claim.text.strip():
+        errors.append(
+            ValidationError(
+                code=ErrorCode.EMPTY_CLAIM,
+                claim_text=claim.text,
+                detail="简历表述不能为空或仅包含空白字符",
+                suggestion="删除空表述或补充有事实支持的内容",
+            )
+        )
 
     if not claim.fact_ids:
         errors.append(
@@ -113,7 +133,7 @@ def validate_claim(
     if not cited:
         return errors
 
-    # 数字边界：表述中的每个数字必须逐字出现在被引用事实的 metrics 或 content 中
+    # 数字边界：完整数值和单位必须出现在被引用事实的 metrics 或 content 中。
     allowed_text = " ".join(
         [m for f in cited for m in f.metrics] + [f.content for f in cited]
     )
@@ -124,7 +144,7 @@ def validate_claim(
         if value
     )
     for number in set(_NUMBER_RE.findall(claim.text)):
-        if number.strip() not in allowed_text:
+        if not _number_supported(number, allowed_text):
             errors.append(
                 ValidationError(
                     code=ErrorCode.UNSUPPORTED_NUMBER,
@@ -172,6 +192,15 @@ def validate_sections(
     全部分区适用统一事实校验；education 分区额外要求只能引用
     education 类型事实。
     """
+    if not sections.all_claims():
+        return [
+            ValidationError(
+                code=ErrorCode.EMPTY_RESUME,
+                claim_text="",
+                detail="简历没有任何内容，不能进入人工审核",
+                suggestion="补充至少一条有事实支持的简历表述",
+            )
+        ]
     errors = validate_claims(sections.all_claims(), facts)
     facts_by_id = {f.id: f for f in facts}
     for claim in sections.education:

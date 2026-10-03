@@ -12,10 +12,12 @@ import logging
 from contextlib import asynccontextmanager
 import threading
 import uuid
+import unicodedata
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 import psycopg
 from psycopg.rows import dict_row
 
@@ -24,7 +26,7 @@ from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
 from datetime import date
-from pydantic import BaseModel, ConfigDict, Field, ValidationError as PydanticValidationError
+from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError as PydanticValidationError
 
 from . import db, facts_repo, search
 
@@ -84,10 +86,37 @@ class ProfileUpdateRequest(RevisionRequest):
 
 
 class JobCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    title: str
+    company: str
     raw_text: str
     source: str = "paste"
-    company: str = ""
     url: str | None = None
+
+    @field_validator("title", "company", "source", "raw_text")
+    @classmethod
+    def validate_text(cls, value: str, info):
+        if info.field_name != "raw_text":
+            value = value.strip()
+        limit = {"title": 200, "company": 200, "source": 100, "raw_text": 30000}[info.field_name]
+        if not value.strip() or len(value) > limit or "\x00" in value:
+            raise ValueError(f"{info.field_name} must be nonblank, NUL-free and at most {limit} characters")
+        return value
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str | None):
+        if value is None or not value.strip():
+            return None
+        if len(value) > 2048 or any(c.isspace() or unicodedata.category(c) == "Cc" for c in value):
+            raise ValueError("URL must be at most 2048 characters without whitespace or controls")
+        try:
+            parts = urlsplit(value)
+            if parts.scheme not in ("http", "https") or not parts.hostname or parts.username is not None or parts.password is not None:
+                raise ValueError("URL must be HTTP(S) with a hostname and without credentials")
+        except ValueError as exc:
+            raise ValueError("Invalid source URL") from exc
+        return value
 
 
 class WorkflowCreateRequest(BaseModel):
@@ -160,7 +189,7 @@ def create_app(
     async def require_initialized_checkpoint(request: Request, call_next):
         path = request.url.path
         if checkpointer is None and (
-            path == "/" or path.startswith(("/api/", "/review/"))
+            path in ("/", "/jobs") or path.startswith(("/api/", "/review/"))
         ):
             return JSONResponse({"detail": "database_not_ready"}, status_code=503)
         return await call_next(request)
@@ -299,26 +328,54 @@ def create_app(
 
     # ---------- 职位 ----------
 
+    @app.get("/jobs", response_class=HTMLResponse)
+    def jobs_page(request: Request):
+        return TEMPLATES.TemplateResponse(request, "jobs.html", {})
+
     @app.post("/api/jobs", status_code=201)
     def create_job(req: JobCreateRequest) -> dict:
-        conn = get_conn()
-        row = conn.execute(
-            "INSERT INTO jobs (source, url, company, raw_text) "
-            "VALUES (%s, %s, %s, %s) RETURNING id",
-            (req.source, req.url, req.company, req.raw_text),
-        ).fetchone()
-        job_id = row["id"]
+        with get_conn() as conn:
+            return conn.execute(
+                "INSERT INTO jobs (title, company, source, url, raw_text) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING *",
+                (req.title, req.company, req.source, req.url, req.raw_text),
+            ).fetchone()
 
+    @app.get("/api/jobs")
+    def list_jobs(limit: int = Query(default=20, ge=1, le=100), offset: int = Query(default=0, ge=0)) -> dict:
+        with get_conn() as conn:
+            with conn.transaction():
+                conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                total = conn.execute("SELECT count(*) AS total FROM jobs").fetchone()["total"]
+                items = conn.execute("SELECT * FROM jobs ORDER BY id DESC LIMIT %s OFFSET %s", (limit, offset)).fetchall()
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+    @app.get("/api/jobs/{job_id}")
+    def get_job(job_id: int) -> dict:
+        with get_conn() as conn:
+            row = conn.execute("SELECT * FROM jobs WHERE id=%s", (job_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "职位不存在")
+        return row
+
+    @app.post("/api/jobs/{job_id}/parse")
+    def parse_job(job_id: int) -> dict:
+        row = get_job(job_id)
         try:
-            requirements = parse_jd(req.raw_text, get_adapter())
-        except JDParseError as e:
-            # 解析失败不阻断保存，允许用户修正原文后重试（第 10 节）
-            return {"id": job_id, "parsed": None, "parse_error": str(e)}
-        conn.execute(
-            "UPDATE jobs SET title = %s, parsed = %s WHERE id = %s",
-            (requirements.job_title, requirements.model_dump_json(), job_id),
-        )
-        return {"id": job_id, "parsed": requirements.model_dump(mode="json"), "parse_error": None}
+            model = get_adapter()
+        except HTTPException as exc:
+            raise HTTPException(503, "模型尚未配置，职位已保留") from exc
+        try:
+            requirements = parse_jd(row["raw_text"], model)
+        except ModelError as exc:
+            raise HTTPException(502, "模型调用失败，职位及已有解析已保留") from exc
+        except JDParseError as exc:
+            raise HTTPException(422, "模型输出无法解析，职位及已有解析已保留") from exc
+        with get_conn() as conn:
+            return conn.execute(
+                "UPDATE jobs SET parsed=%s WHERE id=%s RETURNING *",
+                (requirements.model_dump_json(), job_id),
+            ).fetchone()
 
     @app.get("/api/jobs/{job_id}/match")
     def match_job(job_id: int) -> dict:

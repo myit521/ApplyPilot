@@ -74,10 +74,12 @@ def main() -> int:
         response.raise_for_status()
 
     print("\n== 2. 保存并解析 JD ==")
-    resp = client.post("/api/jobs", json={"raw_text": JD_TEXT})
+    resp = client.post("/api/jobs", json={"title": "Java 后端开发工程师", "company": "模拟公司", "raw_text": JD_TEXT})
     resp.raise_for_status()
     job = resp.json()
-    parsed = job["parsed"]
+    resp = client.post(f"/api/jobs/{job['id']}/parse")
+    resp.raise_for_status()
+    parsed = resp.json()["parsed"]
     print(f"岗位: {parsed['job_title']} | 必备: {parsed['required']}")
     print(f"加分: {parsed['preferred']}")
 

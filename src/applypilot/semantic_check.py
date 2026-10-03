@@ -9,12 +9,18 @@
 from __future__ import annotations
 
 import json
+import re
 
 from pydantic import ValidationError as PydanticValidationError
 
-from .jd_parser import JDParseError, _extract_json
 from .model_adapter import ModelAdapter
-from .schemas import ErrorCode, Fact, ResumeClaim, ValidationError
+from .schemas import (
+    ErrorCode,
+    Fact,
+    ResumeClaim,
+    SemanticReviewResponse,
+    ValidationError,
+)
 
 _SYSTEM_PROMPT = """你是事实一致性复核员。给定简历表述及其引用的事实原文，判断表述是否超出事实含义。
 判定越界的情况包括：
@@ -49,27 +55,56 @@ def semantic_check(
     facts: list[Fact],
     adapter: ModelAdapter,
 ) -> list[ValidationError]:
-    """模型复核语义越界。模型输出无法解析时放行（不阻断流程，
-    语义层是补充而非硬门），由下一次迭代收紧。"""
+    """复核语义越界；复核服务或响应无效时返回阻断错误。"""
     if not claims:
         return []
     facts_by_id = {f.id: f for f in facts}
-    output = adapter.complete(_SYSTEM_PROMPT, _build_user_prompt(claims, facts_by_id))
     try:
-        data = json.loads(_extract_json(output))
-        violations = data.get("violations", [])
-        if not isinstance(violations, list):
-            raise ValueError("violations 不是数组")
-    except (JDParseError, ValueError, PydanticValidationError):
-        return []
+        output = adapter.complete(_SYSTEM_PROMPT, _build_user_prompt(claims, facts_by_id))
+    except Exception:
+        return [_unavailable_error(claims)]
+    try:
+        data = json.loads(_semantic_json_text(output), object_pairs_hook=_unique_object)
+        response = SemanticReviewResponse.model_validate(data)
+    except (ValueError, PydanticValidationError, TypeError):
+        return [_unavailable_error(claims)]
+
+    claim_texts = {claim.text for claim in claims}
+    if any(violation.claim_text not in claim_texts for violation in response.violations):
+        return [_unavailable_error(claims)]
 
     return [
         ValidationError(
             code=ErrorCode.SEMANTIC_OVERRUN,
-            claim_text=str(v.get("claim_text", "")),
-            detail=str(v.get("reason", "语义超出事实含义")),
+            claim_text=violation.claim_text,
+            detail=violation.reason,
             suggestion="弱化表述至事实原文的含义范围内",
         )
-        for v in violations
-        if isinstance(v, dict)
+        for violation in response.violations
     ]
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject ambiguous JSON objects with repeated keys."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def _semantic_json_text(output: str) -> str:
+    """Accept one JSON object, optionally inside a complete Markdown fence."""
+    stripped = output.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, re.DOTALL | re.IGNORECASE)
+    return fenced.group(1) if fenced else stripped
+
+
+def _unavailable_error(claims: list[ResumeClaim]) -> ValidationError:
+    return ValidationError(
+        code=ErrorCode.SEMANTIC_REVIEW_UNAVAILABLE,
+        claim_text=claims[0].text,
+        detail="语义复核未能返回有效结果，不能确认该简历内容",
+        suggestion="检查复核服务后重新运行，或转人工复核",
+    )

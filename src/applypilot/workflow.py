@@ -25,7 +25,7 @@ from .generator import generate_resume
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelAdapter
 from .retrieval import ScoredFact
-from .schemas import Fact, JobRequirements, ResumeSections, ValidationError
+from .schemas import ErrorCode, Fact, JobRequirements, ResumeSections, ValidationError
 from .semantic_check import semantic_check
 from .validation import validate_sections
 
@@ -92,6 +92,12 @@ def build_graph(
         if not errors:
             # 确定性规则通过后，模型复核语义越界（第 8.4 节后段）
             errors = semantic_check(resume.all_claims(), facts, adapter)
+        if any(error.code == ErrorCode.SEMANTIC_REVIEW_UNAVAILABLE for error in errors):
+            return {
+                "validation_errors": errors,
+                "status": WorkflowStatus.FAILED,
+                "error": "语义复核不可用，简历待人工处理",
+            }
         retries = state.get("validation_retries", 0)
         if errors and retries < MAX_VALIDATION_RETRIES:
             return {

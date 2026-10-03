@@ -139,6 +139,8 @@ class JobRequirements(BaseModel):
 
 
 class ErrorCode(StrEnum):
+    EMPTY_RESUME = "EMPTY_RESUME"
+    EMPTY_CLAIM = "EMPTY_CLAIM"
     MISSING_CITATION = "MISSING_CITATION"
     UNKNOWN_FACT = "UNKNOWN_FACT"
     FACT_DISABLED = "FACT_DISABLED"
@@ -146,6 +148,7 @@ class ErrorCode(StrEnum):
     UNSUPPORTED_NUMBER = "UNSUPPORTED_NUMBER"
     UNSUPPORTED_SKILL = "UNSUPPORTED_SKILL"
     SEMANTIC_OVERRUN = "SEMANTIC_OVERRUN"
+    SEMANTIC_REVIEW_UNAVAILABLE = "SEMANTIC_REVIEW_UNAVAILABLE"
     INVALID_FACT_TYPE = "INVALID_FACT_TYPE"
 
 
@@ -156,3 +159,23 @@ class ValidationError(BaseModel):
     claim_text: str
     detail: str
     suggestion: str = ""
+
+
+class SemanticReviewViolation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    claim_text: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+    @field_validator("claim_text", "reason")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+
+class SemanticReviewResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    violations: list[SemanticReviewViolation]

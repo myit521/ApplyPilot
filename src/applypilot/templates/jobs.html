@@ -17,6 +17,11 @@ th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ddd; overfl
 pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f5f5f5; padding: 1rem; }
 .error { color: #b91c1c; }
 #detail { overflow-wrap: anywhere; }
+.requirement { border: 1px solid #ddd; border-radius: .4rem; padding: .8rem; margin: .7rem 0; }
+.status { display: inline-block; padding: .15rem .45rem; border-radius: .3rem; background: #eee; font-weight: 600; }
+.status-supported { color: #166534; background: #dcfce7; }
+.status-partial { color: #92400e; background: #fef3c7; }
+.status-no_evidence, .status-unknown { color: #991b1b; background: #fee2e2; }
 a { color: #1d4ed8; }
 </style>
 </head>
@@ -44,6 +49,16 @@ a { color: #1d4ed8; }
 <button id="parse-job" type="button">调用模型解析</button>
 <p id="parse-status" role="status" aria-live="polite"></p>
 <h3>解析结果</h3><pre id="detail-parsed"></pre>
+<h3>证据匹配</h3>
+<p>状态只根据下方列出的明确关键词和已确认事实判断；无证据不代表你不具备该能力。</p>
+<label><input id="include-semantic" type="checkbox"> 补充语义候选（候选不会单独变成支持证据）</label>
+<button id="match-job" type="button" hidden>生成匹配报告</button>
+<p id="match-status" role="status" aria-live="polite"></p>
+<section id="match-report" hidden>
+<div id="match-requirements"></div>
+<h4>解析不确定项</h4><ul id="match-unknowns"></ul>
+<h4 id="semantic-heading" hidden>待人工核对的语义候选</h4><ul id="semantic-candidates"></ul>
+</section>
 </section>
 <script>
 const el = id => document.getElementById(id);
@@ -51,6 +66,11 @@ let offset = 0;
 const limit = 20;
 let selected = null;
 let detailRequest = 0;
+let matchRequest = 0;
+const labels = {
+  required: '必备条件', preferred: '加分项', responsibility: '岗位职责', keyword: '技术关键词',
+  supported: '支持', partial: '部分支持', no_evidence: '无证据', unknown: '未知',
+};
 function status(id, message, error = false) {
   el(id).textContent = message;
   el(id).className = error ? 'error' : '';
@@ -71,6 +91,9 @@ function showDetail(job) {
     el('detail-' + key).textContent = value;
   }
   el('parse-job').disabled = false;
+  el('match-job').hidden = !job.parsed;
+  el('match-report').hidden = true;
+  status('match-status', '');
 }
 async function openDetail(id) {
   const token = ++detailRequest;
@@ -154,6 +177,63 @@ el('parse-job').onclick = async () => {
     if (token === detailRequest) status('parse-status', error.message, true);
   } finally {
     if (token === detailRequest) el('parse-job').disabled = false;
+  }
+};
+function addText(parent, tag, text, className = '') {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  if (className) node.className = className;
+  parent.append(node);
+  return node;
+}
+function renderMatchReport(report) {
+  const list = el('match-requirements');
+  list.replaceChildren();
+  for (const item of report.requirements) {
+    const card = document.createElement('article');
+    card.className = 'requirement';
+    addText(card, 'strong', labels[item.category] || item.category);
+    addText(card, 'span', labels[item.status] || item.status, 'status status-' + item.status);
+    addText(card, 'p', item.text);
+    addText(card, 'p', '判定依据：' + item.reason);
+    if (item.keywords.length) addText(card, 'p', '关键词：' + item.keywords.join('、'));
+    if (item.matched_terms.length) addText(card, 'p', '已匹配：' + item.matched_terms.join('、'));
+    for (const evidence of item.evidence) {
+      const block = document.createElement('blockquote');
+      addText(block, 'p', evidence.source_name + ' · ' + evidence.fact_type + ' · 修订 ' + evidence.revision);
+      addText(block, 'p', '匹配关键词：' + evidence.matched_terms.join('、') + '（' + evidence.match_basis.join('、') + '）');
+      if (evidence.matched_skills.length) addText(block, 'p', '匹配技能标签：' + evidence.matched_skills.join('、'));
+      addText(block, 'p', evidence.excerpt);
+      card.append(block);
+    }
+    list.append(card);
+  }
+  const unknowns = el('match-unknowns');
+  unknowns.replaceChildren();
+  for (const item of report.unknowns) addText(unknowns, 'li', item.text + '：' + item.reason);
+  const semantic = el('semantic-candidates');
+  semantic.replaceChildren();
+  for (const candidate of report.semantic_candidates) {
+    addText(semantic, 'li', candidate.fact.source_name + '：' + candidate.fact.content + '（语义候选，不是支持证据）');
+  }
+  el('semantic-heading').hidden = !report.semantic_candidates.length;
+  el('match-report').hidden = false;
+}
+el('match-job').onclick = async () => {
+  if (!selected || !selected.parsed) return;
+  const token = ++matchRequest;
+  el('match-job').disabled = true;
+  status('match-status', '正在生成证据匹配报告…');
+  try {
+    const include = el('include-semantic').checked;
+    const report = await request('/api/jobs/' + selected.id + '/match?include_semantic=' + include);
+    if (token !== matchRequest) return;
+    renderMatchReport(report);
+    status('match-status', '报告已生成；请逐条核对事实原文。');
+  } catch (error) {
+    if (token === matchRequest) status('match-status', error.message, true);
+  } finally {
+    if (token === matchRequest) el('match-job').disabled = false;
   }
 };
 loadHistory();

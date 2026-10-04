@@ -7,9 +7,11 @@
   body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
   h2 { font-size: 1.05rem; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: .3rem; }
   .claim { border: 1px solid #e2e2e2; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-  .claim-text { font-size: 1rem; margin-bottom: .5rem; }
+  .claim-edit { box-sizing: border-box; width: 100%; min-height: 4rem; padding: .5rem; font: inherit; }
   .fact { background: #f8fafc; border-left: 3px solid #94a3b8; padding: .4rem .8rem; margin: .3rem 0; font-size: .85rem; color: #475569; }
   .fact-id { font-family: monospace; color: #1d4ed8; }
+  .change { border-left: 3px solid #64748b; padding-left: .8rem; margin: .75rem 0; }
+  del { color: #991b1b; } ins { color: #166534; }
   .actions { margin-top: 1.5rem; display: flex; gap: .8rem; align-items: center; }
   button { padding: .5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: .95rem; }
   #approve { background: #15803d; color: #fff; }
@@ -21,14 +23,30 @@
 </head>
 <body>
 <h1>简历审批 <small>{{ run_id }}</small></h1>
-<p>共 {{ total }} 条生成内容，每条下方列出其引用的事实原文。量化指标与技能均已通过确定性校验。</p>
+<p>草稿修订 {{ draft_revision }} · 共 {{ total }} 条内容。每条下方列出其引用的事实原文；只有通过确定性和语义校验后才能批准。</p>
+
+{% if changes %}
+<section id="draft-diff">
+  <h2>本轮差异</h2>
+  {% for change in changes %}
+  <div class="change"><strong>{{ change.section }}</strong><p><del>{{ change.before or '（新增内容）' }}</del></p><p><ins>{{ change.after or '（已删除）' }}</ins></p></div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if validation_errors %}
+<section id="validation-errors"><h2>校验问题</h2>
+  {% for error in validation_errors %}<p class="error">{{ error.code }}：{{ error.detail }} {{ error.suggestion }}</p>{% endfor %}
+</section>
+{% endif %}
 
 {% for section_name, section_title in [('education', '教育背景'), ('skills', '专业技能'), ('experience', '工作与项目经历')] %}
 {% if sections[section_name] %}
 <h2>{{ section_title }}</h2>
 {% for c in sections[section_name] %}
 <div class="claim">
-  <div class="claim-text">{{ c.text }}</div>
+  <label for="claim-{{ section_name }}-{{ loop.index0 }}">简历表述</label>
+  <textarea id="claim-{{ section_name }}-{{ loop.index0 }}" class="claim-edit" data-section="{{ section_name }}">{{ c.text }}</textarea>
   {% for f in c.facts %}
   <div class="fact"><span class="fact-id">{{ f.id }}</span>｜{{ f.source_name }}：{{ f.content }}{% if f.metrics %}｜指标: {{ f.metrics|join('、') }}{% endif %}</div>
   {% endfor %}
@@ -37,31 +55,53 @@
 {% endif %}
 {% endfor %}
 
+{% if can_review %}
 <div class="actions">
+  <button id="save-edit">保存修改并重新校验</button>
   <button id="approve">批准并冻结版本</button>
   <input id="feedback" placeholder="退回意见（退回时填写）">
   <button id="reject">退回重新生成</button>
 </div>
+{% else %}<p>当前工作流状态：{{ status }}，不能编辑或批准。</p>{% endif %}
 <div id="result"></div>
 
 <script>
 const runId = {{ run_id | tojson }};
-async function decide(approved) {
-  const body = { approved, feedback: document.getElementById('feedback').value };
-  const resp = await fetch(`/api/workflows/${runId}/approve`, {
+const draftRevision = {{ draft_revision | tojson }};
+async function post(path, body) {
+  return fetch(`/api/workflows/${runId}/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
   });
+}
+async function decide(approved) {
+  const body = { approved, expected_revision: draftRevision, feedback: document.getElementById('feedback').value };
+  const resp = await post('approve', body);
   const data = await resp.json();
   const el = document.getElementById('result');
   if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
   if (data.status === 'READY_TO_APPLY') {
     el.innerHTML = `已批准，简历版本 #${data.resume_version_id} 已冻结。<a href="/api/resume-versions/${data.resume_version_id}/docx">下载 DOCX</a>`;
   } else {
-    el.textContent = `已退回，工作流状态: ${data.status}。重新生成完成后请刷新本页。`;
+    el.textContent = `已退回，工作流状态: ${data.status}。正在刷新新草稿。`;
+    if (data.status === 'WAITING_APPROVAL') window.location.reload();
   }
 }
-document.getElementById('approve').onclick = () => decide(true);
-document.getElementById('reject').onclick = () => decide(false);
+const approve = document.getElementById('approve');
+const reject = document.getElementById('reject');
+const saveEdit = document.getElementById('save-edit');
+if (approve) approve.onclick = () => decide(true);
+if (reject) reject.onclick = () => decide(false);
+if (saveEdit) saveEdit.onclick = async () => {
+  const sections = Object.fromEntries(['education', 'skills', 'experience'].map(name => [
+    name, [...document.querySelectorAll(`textarea[data-section="${name}"]`)].map(input => input.value)
+  ]));
+  const resp = await post('edit', { expected_revision: draftRevision, sections });
+  const data = await resp.json();
+  const el = document.getElementById('result');
+  if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
+  el.textContent = `修订已校验，当前状态: ${data.status}。正在刷新。`;
+  if (data.status === 'WAITING_APPROVAL') window.location.reload();
+};
 </script>
 </body>
 </html>

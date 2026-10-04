@@ -10,7 +10,7 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from applypilot.schemas import Fact, FactType
+from applypilot.schemas import Fact, FactType, ResumeSections
 from applypilot.workflow import MAX_VALIDATION_RETRIES, WorkflowStatus, build_graph
 
 FACTS = [
@@ -66,6 +66,7 @@ class ScriptedAdapter:
         if "事实一致性复核员" in system:
             return self.semantic_output
         self.generate_calls += 1
+        self.generation_prompts.append(user)
         return self.generate_outputs.pop(0)
 
     def __init__(self, jd_output: str, generate_outputs: list[str], semantic_output: str = '{"violations": []}'):
@@ -73,6 +74,7 @@ class ScriptedAdapter:
         self.generate_outputs = list(generate_outputs)
         self.semantic_output = semantic_output
         self.generate_calls = 0
+        self.generation_prompts: list[str] = []
 
 
 def make_workflow(adapter):
@@ -151,6 +153,41 @@ def test_human_rejection_regenerates():
     # 退回后重新生成并再次停在审批
     assert state.values["status"] == WorkflowStatus.WAITING_APPROVAL
     assert adapter.generate_calls == 2
+    assert "精简一点" in adapter.generation_prompts[1]
+
+
+def test_manual_edit_updates_revision_and_revalidates_without_regeneration():
+    adapter = ScriptedAdapter(json.dumps(JD_REQUIREMENTS), [json.dumps(GOOD_CLAIM)])
+    graph, config = make_workflow(adapter)
+    run_until_interrupt(graph, config)
+    edited = ResumeSections.model_validate(GOOD_CLAIM["sections"])
+    edited.experience[0].text = "参与批量执行模块开发，交付 6 个批量接口"
+
+    graph.invoke(Command(resume={"edited_sections": edited.model_dump(mode="json")}), config)
+    state = graph.get_state(config)
+
+    assert state.values["status"] == WorkflowStatus.WAITING_APPROVAL
+    assert state.values["resume"].experience[0].text == edited.experience[0].text
+    assert state.values["previous_resume"].experience[0].text == GOOD_CLAIM["sections"]["experience"][0]["text"]
+    assert state.values["draft_revision"] == 2
+    assert adapter.generate_calls == 1
+
+
+def test_manual_edit_with_unsupported_number_is_revalidated_before_regeneration():
+    adapter = ScriptedAdapter(
+        json.dumps(JD_REQUIREMENTS), [json.dumps(GOOD_CLAIM), json.dumps(GOOD_CLAIM)]
+    )
+    graph, config = make_workflow(adapter)
+    run_until_interrupt(graph, config)
+    edited = ResumeSections.model_validate(GOOD_CLAIM["sections"])
+    edited.experience[0].text = "交付 999 个批量接口"
+
+    graph.invoke(Command(resume={"edited_sections": edited.model_dump(mode="json")}), config)
+
+    state = graph.get_state(config)
+    assert state.values["status"] == WorkflowStatus.WAITING_APPROVAL
+    assert "UNSUPPORTED_NUMBER" in adapter.generation_prompts[1]
+    assert state.values["resume"].experience[0].text == GOOD_CLAIM["sections"]["experience"][0]["text"]
 
 
 def test_state_persisted_per_node():

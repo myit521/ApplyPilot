@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from testcontainers.postgres import PostgresContainer
 
-from applypilot import db
+from applypilot import db, embeddings
 from applypilot.api import create_app
 
 pytestmark = pytest.mark.integration
@@ -51,6 +51,7 @@ CLAIMS_JSON = json.dumps({
 class FakeAdapter:
     def __init__(self):
         self.fact_id = None
+        self.generation_prompts = []
 
     def complete(self, system: str, user: str) -> str:
         if "职位描述解析器" in system:
@@ -59,6 +60,7 @@ class FakeAdapter:
             return FACTS_JSON
         if "事实一致性复核员" in system:
             return '{"violations": []}'
+        self.generation_prompts.append(user)
         return CLAIMS_JSON.replace("__FACT_ID__", self.fact_id)
 
 
@@ -68,10 +70,12 @@ def client():
         dsn = pg.get_connection_url().replace("postgresql+psycopg2://", "postgresql://")
         db.init_schema(db.connect(dsn))
         adapter = FakeAdapter()
-        app = create_app(dsn=dsn, adapter=adapter)
-        with TestClient(app) as c:
-            c.adapter = adapter
-            yield c
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(embeddings, "LocalEmbeddingProvider", embeddings.NullEmbeddingProvider)
+            app = create_app(dsn=dsn, adapter=adapter)
+            with TestClient(app) as c:
+                c.adapter = adapter
+                yield c
 
 
 def wait_for_status(client: TestClient, run_id: str, timeout: float = 30.0) -> dict:
@@ -124,12 +128,64 @@ def test_full_api_flow(client: TestClient):
     run_id = resp.json()["run_id"]
     state = wait_for_status(client, run_id)
     assert state["status"] == "WAITING_APPROVAL"
+    assert state["draft_revision"] == 1
     assert state["sections"]["experience"][0]["fact_ids"] == [fact["id"]]
     assert state["validation_errors"] == []
 
-    # 6. 批准 -> 冻结版本
-    resp = client.post(f"/api/workflows/{run_id}/approve", json={"approved": True})
+    # 6. 退回意见进入下一次生成请求
+    resp = client.post(
+        f"/api/workflows/{run_id}/approve",
+        json={"approved": False, "expected_revision": 1, "feedback": "突出批量执行的结果"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["draft_revision"] == 2
+    assert "突出批量执行的结果" in client.adapter.generation_prompts[1]
+
+    # 7. 手工修改只提交主张文本，引用由服务端保留，并要求重新校验
+    original_text = resp.json()["sections"]["experience"][0]["text"]
+    malformed_edit = client.post(f"/api/workflows/{run_id}/edit", json={
+        "expected_revision": 2,
+        "sections": {"education": ["新增教育"], "skills": [], "experience": [original_text]},
+    })
+    assert malformed_edit.status_code == 422
+
+    edit = client.post(f"/api/workflows/{run_id}/edit", json={
+        "expected_revision": 2,
+        "sections": {
+            "education": [], "skills": [],
+            "experience": ["参与批量执行模块开发，交付 6 个批量接口"],
+        },
+    })
+    assert edit.status_code == 200, edit.text
+    edited_state = edit.json()
+    assert edited_state["status"] == "WAITING_APPROVAL"
+    assert edited_state["draft_revision"] == 3
+    assert edited_state["sections"]["experience"][0]["text"] == "参与批量执行模块开发，交付 6 个批量接口"
+    assert edited_state["sections"]["experience"][0]["fact_ids"] == [fact["id"]]
+    assert edited_state["previous_sections"]["experience"][0]["text"] == original_text
+
+    # 过期浏览器不能批准或覆盖较新的草稿
+    stale = client.post(f"/api/workflows/{run_id}/approve", json={"approved": True, "expected_revision": 2})
+    assert stale.status_code == 409
+    stale_edit = client.post(f"/api/workflows/{run_id}/edit", json={
+        "expected_revision": 2, "sections": {"education": [], "skills": [], "experience": ["旧草稿"]},
+    })
+    assert stale_edit.status_code == 409
+
+    # 8. 审核页面提供可编辑文本和上版/当前版差异
+    review = client.get(f"/review/{run_id}")
+    assert review.status_code == 200
+    assert "textarea" in review.text
+    assert "修订 3" in review.text
+    assert "承担批量执行模块开发" in review.text
+    assert "参与批量执行模块开发" in review.text
+
+    # 9. 批准当前修订 -> 冻结版本
+    resp = client.post(
+        f"/api/workflows/{run_id}/approve", json={"approved": True, "expected_revision": 3}
+    )
     result = resp.json()
+    assert resp.status_code == 200, resp.text
     assert result["status"] == "READY_TO_APPLY"
     version_id = result["resume_version_id"]
 
@@ -141,11 +197,13 @@ def test_full_api_flow(client: TestClient):
     )
     assert len(resp.content) > 1000
 
-    # 8. 已结束后不能再审批
-    resp = client.post(f"/api/workflows/{run_id}/approve", json={"approved": True})
+    # 10. 已结束后不能再审批
+    resp = client.post(
+        f"/api/workflows/{run_id}/approve", json={"approved": True, "expected_revision": 3}
+    )
     assert resp.status_code == 409
 
-    # 9. 审核页面
+    # 11. 审核页面
     resp = client.get("/")
     assert resp.status_code == 200 and "审核台" in resp.text
     resp = client.get(f"/review/{run_id}")

@@ -125,8 +125,26 @@ class WorkflowCreateRequest(BaseModel):
 
 
 class ApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     approved: bool
+    expected_revision: int = Field(ge=1)
     feedback: str = ""
+
+
+class ResumeTextEdits(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    education: list[str]
+    skills: list[str]
+    experience: list[str]
+
+
+class DraftEditRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    sections: ResumeTextEdits
 
 
 def create_app(
@@ -446,13 +464,16 @@ def create_app(
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         values: dict[str, Any] = state.values
         resume = values.get("resume")
+        previous_resume = values.get("previous_resume")
         summary = {
             "run_id": run_id,
             "status": values.get("status"),
             "waiting": bool(state.next),
             "validation_retries": values.get("validation_retries", 0),
+            "draft_revision": values.get("draft_revision", 1 if resume else 0),
             "error": values.get("error") or run_errors.get(run_id, ""),
             "sections": resume.model_dump(mode="json") if resume else None,
+            "previous_sections": previous_resume.model_dump(mode="json") if previous_resume else None,
             "validation_errors": [
                 e.model_dump(mode="json") for e in values.get("validation_errors", [])
             ],
@@ -527,6 +548,9 @@ def create_app(
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         if not state.next or state.next[0] != "approval":
             raise HTTPException(409, "工作流当前不在等待审批状态")
+        current_revision = state.values.get("draft_revision", 1)
+        if req.expected_revision != current_revision:
+            raise HTTPException(409, "简历草稿已更新，请刷新后重新审核")
 
         # A paused draft is bound to the retrieved fact revisions, including rejection/regeneration.
         with get_conn() as conn:
@@ -546,6 +570,44 @@ def create_app(
             version_id = _freeze_version(job_id, summary["sections"])
             summary["resume_version_id"] = version_id
         return summary
+
+    @app.post("/api/workflows/{run_id}/edit")
+    def edit_workflow_draft(run_id: str, req: DraftEditRequest) -> dict:
+        graph = get_graph()
+        config = {"configurable": {"thread_id": run_id}}
+        state = graph.get_state(config)
+        if not state.values:
+            raise HTTPException(404, f"工作流 {run_id} 不存在")
+        if not state.next or state.next[0] != "approval":
+            raise HTTPException(409, "工作流当前不在等待审核状态")
+        current_revision = state.values.get("draft_revision", 1)
+        if req.expected_revision != current_revision:
+            raise HTTPException(409, "简历草稿已更新，请刷新后重新编辑")
+
+        current = state.values["resume"]
+        edited_sections = {}
+        for section in ("education", "skills", "experience"):
+            claims = getattr(current, section)
+            texts = getattr(req.sections, section)
+            if len(texts) != len(claims):
+                raise HTTPException(422, f"{section} 分区的主张数量不能变更")
+            edited_sections[section] = [
+                claim.model_copy(update={"text": text})
+                for claim, text in zip(claims, texts, strict=True)
+            ]
+        edited = ResumeSections(**edited_sections)
+
+        with get_conn() as conn:
+            for snapshot in state.values.get("retrieved_facts", []):
+                fact = facts_repo.get_fact(conn, snapshot.id)
+                if fact is None or not fact.enabled or fact.status != "confirmed" or fact.revision != snapshot.revision:
+                    raise HTTPException(409, "Facts changed; create a new workflow to retrieve current confirmed facts")
+
+        graph.invoke(
+            Command(resume={"edited_sections": edited.model_dump(mode="json")}),
+            config,
+        )
+        return _summarize_state(run_id)
 
     def _freeze_version(job_id: int | None, sections: dict) -> int:
         """批准后将分区简历冻结为不可变版本（第 8.3、8.5 节）。"""
@@ -623,13 +685,30 @@ def create_app(
             return result
 
         sections = summary["sections"] or {}
+        previous_sections = summary["previous_sections"] or {}
+        section_titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
+        changes = []
+        for name, title in section_titles.items():
+            before = previous_sections.get(name, [])
+            after = sections.get(name, [])
+            for index in range(max(len(before), len(after))):
+                old_text = before[index]["text"] if index < len(before) else ""
+                new_text = after[index]["text"] if index < len(after) else ""
+                if old_text != new_text:
+                    changes.append({"section": title, "before": old_text, "after": new_text})
         context = {
             name: with_facts(sections.get(name, []))
             for name in ("education", "skills", "experience")
         }
         total = sum(len(v) for v in context.values())
         return TEMPLATES.TemplateResponse(
-            request, "review.html", {"run_id": run_id, "sections": context, "total": total}
+            request, "review.html", {
+                "run_id": run_id, "sections": context, "total": total,
+                "draft_revision": summary["draft_revision"], "changes": changes,
+                "validation_errors": summary["validation_errors"],
+                "status": summary["status"],
+                "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
+            }
         )
 
     # ---------- 投递记录 ----------

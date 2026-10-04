@@ -1,14 +1,14 @@
 # 验证、评测与演示手册
 
-更新：2026-10-03。T1–T5 实际验证记录位于第一节；后续矩阵仍是目标验收，**尚未全部实现或运行**。已观察结果以[审计基线](audit-2026-09-29.md)为准。
+更新：2026-10-04。T1–T6 实际验证记录位于第一节；后续矩阵仍是目标验收，**尚未全部实现或运行**。已观察结果以[审计基线](audit-2026-09-29.md)为准。
 
-## 1. 当前测试复现（T5 验收：2026-10-03）
+## 1. 当前测试复现（T6 验收：2026-10-04）
 
-Windows Python 3.13.5，按 README 在隔离虚拟环境安装 requirements.lock。锁文件来自固定直接依赖的独立解析，不是全局环境 freeze；T1 安装后 89 个依赖兼容；T2 最终全套测试 72 passed。T3 最终全套测试 108 passed。T4 最终全套测试结果见 [T4 执行记录](t4-execution.md)，T5 结果见 [T5 执行记录](t5-execution.md)。
+Windows Python 3.13.5，按 README 在隔离虚拟环境安装 requirements.lock。锁文件来自固定直接依赖的独立解析，不是全局环境 freeze；T1 安装后 89 个依赖兼容；T2 最终全套测试 72 passed。T3 最终全套测试 108 passed。T4、T5、T6 结果分别见 [T4 执行记录](t4-execution.md)、[T5 执行记录](t5-execution.md)、[T6 执行记录](t6-execution.md)。
 
 ### 无 Docker 的单元/运行测试
 
-T3 最终无 Docker 测试 75 passed、33 deselected。T4、T5 最终无 Docker 测试结果分别见 [T4 执行记录](t4-execution.md)、[T5 执行记录](t5-execution.md)。
+T3 最终无 Docker 测试 75 passed、33 deselected。T4、T5、T6 最终无 Docker 测试结果分别见 [T4 执行记录](t4-execution.md)、[T5 执行记录](t5-execution.md)、[T6 执行记录](t6-execution.md)。
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
@@ -16,7 +16,7 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'
 python -m pytest -p no:cacheprovider -q -m "not integration"
 ```
 
-包含原有纯逻辑测试及新进程导入、生命周期、不可用数据库、连接释放和就绪回归。不会启动 Docker 或加载嵌入模型；API 模块在收集阶段不再连接数据库。T5 无 Docker 结果为 99 passed、36 deselected；语义复核解析失败改为阻断，具体失败路径见执行记录。
+包含原有纯逻辑测试及新进程导入、生命周期、不可用数据库、连接释放和就绪回归。不会启动 Docker 或加载嵌入模型；API 模块在收集阶段不再连接数据库。T6 无 Docker 结果为 103 passed、36 deselected。API 集成测试单独使用临时 PostgreSQL 和空向量替身。
 
 ### 完整测试
 
@@ -42,7 +42,7 @@ requirements.lock 当前只验证 Windows/Python 3.13；其他平台应另行解
 
 ## 2. P0 回归矩阵
 
-以下是完整 P0 验收矩阵。T1–T5 对应的实际通过项见各自执行记录，其余仍待实现，不能将矩阵视为覆盖率声明。
+以下是完整 P0 验收矩阵。T1–T6 对应的实际通过项见各自执行记录，其余仍待实现，不能将矩阵视为覆盖率声明。
 
 | 场景 | 预期结果 | 层级 / 关联任务 |
 | --- | --- | --- |

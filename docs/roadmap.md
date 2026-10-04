@@ -1,6 +1,6 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-03。T1 运行基线、T2 资料/事实确认、T3 职位录入、T4 证据匹配及 T5 校验门禁已实现并验证，分别见[记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)。T6–T12 仍为**待开发、待验收**。下一项是 T6 编辑与反馈。现状见[审计](audit-2026-09-29.md)。
+更新：2026-10-04。T1 运行基线、T2 资料/事实确认、T3 职位录入、T4 证据匹配、T5 校验门禁及 T6 编辑与反馈已实现并验证，分别见[记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)。T7–T12 仍为**待开发、待验收**。下一项是 T7 原子批准与快照。现状见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 

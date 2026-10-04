@@ -48,6 +48,9 @@ class WorkflowState(TypedDict, total=False):
     requirements: JobRequirements | None
     retrieved_facts: list[Fact]
     resume: ResumeSections
+    previous_resume: ResumeSections | None
+    draft_revision: int
+    feedback: str
     validation_errors: list[ValidationError]
     validation_retries: int
     status: WorkflowStatus
@@ -79,11 +82,24 @@ def build_graph(
 
     def node_generate(state: WorkflowState) -> dict:
         errors = state.get("validation_errors", [])
-        feedback = "\n".join(f"- [{e.code}] {e.detail}（{e.suggestion}）" for e in errors)
+        feedback_items = [state.get("feedback", "").strip()]
+        if errors:
+            feedback_items.append(
+                "自动校验意见：\n" + "\n".join(
+                    f"- [{e.code}] {e.detail}（{e.suggestion}）" for e in errors
+                )
+            )
+        feedback = "\n\n".join(item for item in feedback_items if item)
         resume = generate_resume(
             state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
         )
-        return {"resume": resume, "status": WorkflowStatus.VALIDATING_FACTS}
+        return {
+            "resume": resume,
+            "previous_resume": state.get("resume"),
+            "draft_revision": state.get("draft_revision", 0) + 1,
+            "feedback": "",
+            "status": WorkflowStatus.VALIDATING_FACTS,
+        }
 
     def node_validate(state: WorkflowState) -> dict:
         resume = state["resume"]
@@ -115,10 +131,21 @@ def build_graph(
 
     def node_approval(state: WorkflowState) -> dict:
         decision = interrupt({"resume": state["resume"]})
+        if "edited_sections" in decision:
+            edited = ResumeSections.model_validate(decision["edited_sections"])
+            return {
+                "resume": edited,
+                "previous_resume": state["resume"],
+                "draft_revision": state.get("draft_revision", 0) + 1,
+                "validation_errors": [],
+                "validation_retries": 0,
+                "status": WorkflowStatus.VALIDATING_FACTS,
+            }
         if decision.get("approved"):
             return {"status": WorkflowStatus.READY_TO_APPLY}
         # 用户退回：携带修改意见重新生成，重试计数清零
         return {
+            "feedback": str(decision.get("feedback", "")),
             "status": WorkflowStatus.GENERATING_RESUME,
             "validation_retries": 0,
         }
@@ -131,6 +158,8 @@ def build_graph(
         return "approval"
 
     def route_after_approval(state: WorkflowState) -> str:
+        if state["status"] == WorkflowStatus.VALIDATING_FACTS:
+            return "validate"
         if state["status"] == WorkflowStatus.READY_TO_APPLY:
             return END
         return "generate"
@@ -154,7 +183,7 @@ def build_graph(
         "validate", route_after_validation, {"generate": "generate", "approval": "approval", END: END}
     )
     graph.add_conditional_edges(
-        "approval", route_after_approval, {"generate": "generate", END: END}
+        "approval", route_after_approval, {"generate": "generate", "validate": "validate", END: END}
     )
 
     return graph.compile(checkpointer=checkpointer)

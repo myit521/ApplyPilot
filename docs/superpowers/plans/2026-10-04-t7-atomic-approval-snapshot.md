@@ -200,7 +200,6 @@ git commit -m "feat: build canonical approval snapshots"
 
 **Files:**
 - Create: `src/applypilot/approvals_repo.py`
-- Modify: `src/applypilot/api.py`
 - Test: `tests/test_t7_approval_integration.py`
 
 **Interfaces:**
@@ -209,7 +208,7 @@ git commit -m "feat: build canonical approval snapshots"
 
 - [ ] **Step 1: 写完整写入和事务回滚测试**
 
-在 `tests/test_t7_approval_integration.py` 里用 module-scoped `PostgresContainer("pgvector/pgvector:pg16")` 初始化 `db.init_schema()`；每个测试用独立 `db.connect(dsn)`，先 `TRUNCATE workflow_approvals, resume_version_facts, resume_claims, resume_versions, jobs, workflow_runs, audit_events, fact_revisions, facts CASCADE`。`approval_case` fixture 创建职位、一个 confirmed `f1`（revision 1）、对应 `fact_revisions.snapshot`、等待审批的 workflow run，并返回 `(conn, run_id, job_id, sections, retrieved_facts)`。sections 有一个 experience claim（text=`Built batch API`、fact_ids=`["f1"]`、matched_requirements=`["Java"]`）；retrieved_facts 是含 `f1` 修订 1 的 `Fact` 模型实例；`fact_revisions.snapshot` 为 `{content: "Built batch API", skills: ["Java"], status: "confirmed", enabled: true}`。职位行含标题 `Java 后端`、公司 `T7 fixture`、来源 `paste` 和原始 JD。
+在 `tests/test_t7_approval_integration.py` 里导入 `facts_repo`、`ApprovalConflict`，用 module-scoped `PostgresContainer("pgvector/pgvector:pg16")` 初始化 `db.init_schema()`；每个测试用独立 `db.connect(dsn)`，先 `TRUNCATE workflow_approvals, resume_version_facts, resume_claims, resume_versions, jobs, workflow_runs, audit_events, fact_revisions, facts CASCADE`。`approval_case` fixture 创建职位、两个 confirmed 事实 `f1` 和 `f2`（均 revision 1）、各自对应的 `fact_revisions.snapshot` 及等待审批的 workflow run，并返回 `(conn, run_id, job_id, sections, retrieved_facts)`。sections 有一个 experience claim（text=`Built batch API`、fact_ids=`["f1"]`、matched_requirements=`["Java"]`）；retrieved_facts 包含两个 `Fact` 模型实例；只有 `f1` 被引用。职位行含标题 `Java 后端`、公司 `T7 fixture`、来源 `paste` 和原始 JD。
 
 ```python
 def test_persist_approval_writes_version_claims_facts_and_one_event(approval_case):
@@ -233,6 +232,29 @@ def test_persist_approval_writes_version_claims_facts_and_one_event(approval_cas
         "SELECT count(*) AS n FROM audit_events WHERE event_type='resume.approved' "
         "AND payload->>'run_id'=%s", (run_id,)
     ).fetchone()["n"] == 1
+
+
+def test_changed_unreferenced_fact_does_not_block_approval(approval_case):
+    conn, run_id, job_id, sections, retrieved_facts = approval_case
+    facts_repo.update_fact(conn, "f2", 1, {"content": "Changed but not cited"})
+    record = persist_approval(
+        conn, run_id=run_id, draft_revision=2, job_id=job_id,
+        sections=sections, retrieved_facts=retrieved_facts,
+    )
+    assert conn.execute("SELECT count(*) AS n FROM resume_version_facts WHERE version_id=%s",
+                        (record["version_id"],)).fetchone()["n"] == 1
+
+
+def test_changed_cited_fact_rejects_approval_without_writes(approval_case):
+    conn, run_id, job_id, sections, retrieved_facts = approval_case
+    facts_repo.update_fact(conn, "f1", 1, {"content": "Changed after retrieval"})
+    with pytest.raises(ApprovalConflict):
+        persist_approval(
+            conn, run_id=run_id, draft_revision=2, job_id=job_id,
+            sections=sections, retrieved_facts=retrieved_facts,
+        )
+    assert conn.execute("SELECT count(*) AS n FROM resume_versions").fetchone()["n"] == 0
+    assert conn.execute("SELECT count(*) AS n FROM workflow_approvals").fetchone()["n"] == 0
 
 
 def test_persist_approval_rolls_back_every_table_when_event_insert_fails(approval_case):

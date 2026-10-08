@@ -19,6 +19,7 @@
 - 哈希使用有显式版本号的规范 JSON：UTF-8 编码、对象键排序、紧凑分隔符、非 ASCII 字符原样编码；随后计算 SHA-256 十六进制摘要。
 - 不添加消息队列、worker、微服务或新运行时依赖；持久化 worker 和进程重启自动扫描属于 T8。
 - 日志及审计事件不写 API 密钥；审计事件不重复保存完整职位正文。
+- 被引用事实的正文只保存在 `resume_version_facts.snapshot`；`resume_versions.content` 保存职位和简历快照，不重复内嵌事实正文。规范哈希在内存中对两部分组成的完整批准包计算。
 - 全部失败路径必须失败关闭；旧批准数据包不能被事实或职位后续修改重写。
 
 ## Review Focus
@@ -129,7 +130,7 @@ git commit -m "feat: add approval snapshot schema"
 
 **Interfaces:**
 - Consumes: 职位数据库行、`ResumeSections` JSON、锁定后从 `fact_revisions.snapshot` 读取的事实修订快照。
-- Produces: `build_approval_package(*, job: dict, sections: dict, fact_snapshots: list[dict], draft_revision: int) -> dict` 与 `hash_approval_package(package: dict) -> str`。
+- Produces: `build_approval_package(*, job: dict, sections: dict, fact_snapshots: list[dict], draft_revision: int) -> dict` 与 `hash_approval_package(package: dict) -> str`。完整 package（包含 facts）只用于构造与哈希；持久化时 facts 单独写入 `resume_version_facts`。
 
 - [ ] **Step 1: 写规范化和变更敏感性测试**
 
@@ -192,7 +193,7 @@ git commit -m "feat: build canonical approval snapshots"
 
 **Interfaces:**
 - Consumes: `build_approval_package()`、工作流 `retrieved_facts` 和 migration 中两张新表。
-- Produces: `get_approval(conn, run_id) -> dict | None`、`persist_approval(conn, *, run_id, draft_revision, job_id, sections, retrieved_facts) -> dict`、`set_graph_reconciled(conn, run_id) -> None`。`persist_approval()` 在事务内构造 package 与 hash，返回 `{version_id, draft_revision, content_sha256, package, graph_reconciled}`。
+- Produces: `get_approval(conn, run_id) -> dict | None`、`persist_approval(conn, *, run_id, draft_revision, job_id, sections, retrieved_facts) -> dict`、`set_graph_reconciled(conn, run_id) -> None`。`persist_approval()` 在事务内构造 package 与 hash，返回 `{version_id, draft_revision, content_sha256, package, graph_reconciled}`。`get_approval()` 从版本 content 和 `resume_version_facts` 重建完整 package，并重算哈希与记录值核对；不匹配时失败关闭，以便重试和 summary 使用相同且可验证的快照。
 
 - [ ] **Step 1: 写完整写入和事务回滚测试**
 
@@ -211,6 +212,11 @@ def test_persist_approval_writes_version_claims_facts_and_one_event(approval_cas
                         (record["version_id"],)).fetchone()["n"] == 1
     assert conn.execute("SELECT count(*) AS n FROM resume_version_facts WHERE version_id=%s",
                         (record["version_id"],)).fetchone()["n"] == 1
+    saved_content = conn.execute("SELECT content FROM resume_versions WHERE id=%s",
+                                  (record["version_id"],)).fetchone()["content"]
+    assert "facts" not in saved_content
+    assert get_approval(conn, run_id)["package"] == record["package"]
+    assert hash_approval_package(get_approval(conn, run_id)["package"]) == record["content_sha256"]
     assert conn.execute(
         "SELECT count(*) AS n FROM audit_events WHERE event_type='resume.approved' "
         "AND payload->>'run_id'=%s", (run_id,)
@@ -244,7 +250,9 @@ Expected: FAIL，因为 `approvals_repo.py` 尚不存在。
 
 - [ ] **Step 3: 实现事务仓储和事实修订核验**
 
-`persist_approval()` 在一个 `with conn.transaction():` 中，以稳定 ID 顺序锁定全部 retrieved facts，要求每条仍启用、confirmed 且 revision 与工作流快照一致；锁定并读取 job；只为主张引用的事实读取不可变 `fact_revisions.snapshot`；在事务内调用 `build_approval_package()` 与 `hash_approval_package()`；随后插入 `resume_versions(status='approved', content=package)`、所有 `resume_claims`、所有 `resume_version_facts`、唯一 `workflow_approvals` 和一个 `resume.approved` 事件。事件 payload 仅含 run、revision、version、hash 和事实数量。返回从 `workflow_approvals` 读回的字典行，并附 package 和 hash。插入失败必须原样抛出以触发整笔事务回滚。
+`persist_approval()` 在一个 `with conn.transaction():` 中，以稳定 ID 顺序锁定全部 retrieved facts，要求每条仍启用、confirmed 且 revision 与工作流快照一致；锁定并读取 job；只为主张引用的事实读取不可变 `fact_revisions.snapshot`；在事务内调用 `build_approval_package()` 与 `hash_approval_package()`。随后拆分 package：`resume_versions.content` 只存 `schema_version`、`draft_revision`、职位快照和 sections；事实正文仅存入 `resume_version_facts`。再插入所有 `resume_claims`、唯一 `workflow_approvals` 和一个 `resume.approved` 事件。事件 payload 仅含 run、revision、version、hash 和事实数量。返回从 `workflow_approvals` 读回的字典行，并附完整的内存 package 和 hash。插入失败必须原样抛出以触发整笔事务回滚。
+
+事实不存在、已停用、未确认或修订不匹配时，仓储抛出专用 `ApprovalConflict`；API 将它映射为 HTTP 409，不吞掉其他数据库错误。
 
 仓储内的核心顺序固定如下，版本插入及其后的每条 SQL 都必须保留在同一个事务块：
 
@@ -258,7 +266,8 @@ with conn.transaction():
         draft_revision=draft_revision,
     )
     content_sha256 = hash_approval_package(package)
-    version_id = insert_approved_version(conn, job_id, package)
+    version_content = {key: value for key, value in package.items() if key != "facts"}
+    version_id = insert_approved_version(conn, job_id, version_content)
     insert_claim_rows(conn, version_id, sections)
     insert_fact_snapshot_rows(conn, version_id, fact_snapshots)
     insert_approval_record(conn, run_id, draft_revision, content_sha256, version_id)
@@ -290,7 +299,7 @@ git commit -m "feat: persist approvals atomically"
 
 **Interfaces:**
 - Consumes: `get_approval()`、`persist_approval()`、`set_graph_reconciled()` 与 `build_approval_package()`。
-- Produces: approve/edit API 在同一 run 的 PostgreSQL advisory lock 内核对状态；summary 返回 `resume_version_id`、`draft_revision`、`content_sha256`、`approval_reconciliation_pending`。
+- Produces: approve/edit API 在同一 run 的 PostgreSQL advisory lock 内核对状态；summary 返回 `resume_version_id`、`draft_revision`、`content_sha256`、`approval_reconciliation_pending`。已存在批准记录时 summary 先从 PostgreSQL 生成快照响应，不依赖 LangGraph checkpoint 可读。
 
 - [ ] **Step 1: 写 checkpoint 失败后同请求恢复测试**
 
@@ -328,6 +337,48 @@ def test_approval_retry_reconciles_checkpoint_without_duplicate_rows(client, mon
     with db.connect(client.database_dsn) as conn:
         assert conn.execute("SELECT count(*) AS n FROM workflow_approvals WHERE run_id=%s",
                             (run_id,)).fetchone()["n"] == 1
+
+
+def test_pending_approval_summary_survives_checkpoint_read_failure(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+    real_build_graph = api.build_graph
+    failed = False
+    def build_graph_failing_invoke_once(*args, **kwargs):
+        nonlocal failed
+        graph = real_build_graph(*args, **kwargs)
+        class InvokeProxy:
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+            def __getattr__(self, name):
+                return getattr(self.wrapped, name)
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return self.wrapped.invoke(*invoke_args, **invoke_kwargs)
+        return InvokeProxy(graph)
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_invoke_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+
+    def build_graph_unreadable_state(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+        class StateReadProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+            def get_state(self, *state_args, **state_kwargs):
+                raise RuntimeError("checkpoint unavailable")
+        return StateReadProxy()
+    monkeypatch.setattr(api, "build_graph", build_graph_unreadable_state)
+    summary = client.get(f"/api/workflows/{run_id}")
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "APPROVAL_RECONCILIATION_PENDING"
+    assert summary.json()["approval_reconciliation_pending"] is True
+    assert summary.json()["resume_version_id"] == approved.json()["resume_version_id"]
+    assert summary.json()["waiting"] is False
 ```
 
 在现有 `tests/test_api.py::client` module fixture 中增加 `c.database_dsn = dsn`。新增以下具体 helper；其他 T7 API 测试调用它获取独立 run 和 fact：
@@ -337,6 +388,7 @@ def reach_waiting_approval(client):
     fact = client.post("/api/facts", json={
         "fact_type": "project", "source_name": "T7 fixture",
         "content": "Built batch API", "skills": ["Java"],
+        "metrics": ["6 个批量接口"],
     }).json()
     client.adapter.fact_id = fact["id"]
     confirmed = client.post(f"/api/facts/{fact['id']}/confirm",
@@ -358,7 +410,9 @@ Expected: FAIL，因为 API 当前先推进 checkpoint，且不持久化批准�
 
 - [ ] **Step 3: 实现 run 锁、批准先查和两阶段流程**
 
-在 `approvals_repo.py` 增加 `workflow_lock(conn, run_id)` context manager，使用 session-level advisory lock 并在 `finally` 释放。approve 和 edit 都在锁内读取 checkpoint、比较 revision 并完成其 checkpoint 操作。批准首先查 `workflow_approvals`：同 run/修订的批准请求复用记录并只执行必要对账；不同修订或非批准请求返回 409。新批准先调用 `persist_approval()` 提交业务事务，再恢复 LangGraph。图已 READY 时只补 `graph_reconciled`；图仍等待 approval 时恢复一次；图推进异常或状态无法识别时返回 202 并暴露 pending 状态。`_summarize_state()` 先查持久批准记录，确保 pending 期间 UI 不再提供编辑或批准操作。
+在 `approvals_repo.py` 增加 `workflow_lock(conn, run_id)` context manager，使用 session-level advisory lock 并在 `finally` 释放。approve 和 edit 都在锁内读取 checkpoint、比较 revision 并完成其 checkpoint 操作。批准首先查 `workflow_approvals`：同 run/修订的批准请求复用记录并只执行必要对账；不同修订或非批准请求返回 409。新批准先调用 `persist_approval()` 提交业务事务，再恢复 LangGraph。捕获 `ApprovalConflict` 并映射到 HTTP 409；图已 READY 时只补 `graph_reconciled`；图仍等待 approval 时恢复一次；图推进异常或状态无法识别时返回 202 并暴露 pending 状态。
+
+`_summarize_state()` 必须先查 PostgreSQL 的批准记录。若存在记录，则由存储的版本 content 还原 sections，并返回 `resume_version_id`、`draft_revision`、`content_sha256`、`waiting=false` 和 `approval_reconciliation_pending`；`graph_reconciled=false` 时 status 为 `APPROVAL_RECONCILIATION_PENDING`，否则为 `READY_TO_APPLY`。此分支不得调用 `graph.get_state()`，所以 checkpoint 暂时不可用也能展示冻结版本，并且编辑/审批入口会因已批准记录而拒绝操作。未批准的 run 才走现有 checkpoint 摘要路径。
 
 API 的操作顺序应保持为：
 
@@ -465,6 +519,7 @@ git commit -m "feat: reconcile approval checkpoints idempotently"
 
 **Files:**
 - Modify: `src/applypilot/api.py`
+- Modify: `src/applypilot/templates/review.html`
 - Modify: `tests/test_api.py`
 - Modify: `docs/design.md`
 - Modify: `docs/roadmap.md`
@@ -472,7 +527,7 @@ git commit -m "feat: reconcile approval checkpoints idempotently"
 - Create: `docs/t7-execution.md`
 
 **Interfaces:**
-- Consumes: 持久化批准记录与 `resume_versions.content` 中的 `job_snapshot`、`sections`。
+- Consumes: 持久化批准记录与 `resume_versions.content` 中的 `job_snapshot`、`sections`；引用事实从 `resume_version_facts` 读取。
 - Produces: 新批准版本的导出不查询可变职位标题或事实正文；旧版本走兼容读取路径。
 
 - [ ] **Step 1: 写批准快照不会漂移测试**
@@ -506,6 +561,10 @@ def test_approved_docx_uses_frozen_job_snapshot_after_source_changes(client):
     text = "\n".join(p.text for p in Document(BytesIO(response.content)).paragraphs)
     assert "Java 后端" in text
     assert "Changed title" not in text
+    review_page = client.get(f"/review/{run_id}")
+    assert review_page.status_code == 200
+    assert "Built batch API" in review_page.text
+    assert "Changed after approval" not in review_page.text
 ```
 
 在实现中用 `workflow_approvals.version_id` 关联到 `resume_versions` 再取得 job ID；测试不得把 `version_id` 误当 job ID。
@@ -528,6 +587,8 @@ data = render_docx(job_title, sections)
 ```
 
 - [ ] **Step 4: 更新设计和验证文档**
+
+在审核页对已批准 run 使用 `resume_version_facts.snapshot` 显示来源，不再通过 `facts_repo.get_fact()` 读取可变事实当前行。`review.html` 为 `APPROVAL_RECONCILIATION_PENDING` 明确展示“已批准、待恢复对账”，提供冻结版本下载链接并隐藏编辑/审批操作；`READY_TO_APPLY` 展示已冻结版本下载链接。API 集成测试验证事实更新后审核页仍显示批准时快照。按模板现有方式完成人工 UI 验收，并记录结果。
 
 在 `README.md` 更新 T7 完成状态；在 `docs/design.md` 将 T7 的 PostgreSQL 批准记录、hash 绑定、对账 pending 状态写入审批契约；在路线图标记 T7 完成并把下一项写为 T8；在验证手册和新建的 `docs/t7-execution.md` 记录真实迁移命令、测试结果、故障注入结果、已知限制。不得将未实测的重启扫描或多实例恢复写为已完成。
 

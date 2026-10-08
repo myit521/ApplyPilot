@@ -139,20 +139,32 @@ def test_approval_package_hash_is_stable_and_binds_fact_revision():
     package = {
         "schema_version": 1,
         "draft_revision": 4,
-        "job": {"id": 7, "title": "Java 后端"},
-        "sections": {"education": [], "skills": [], "experience": []},
+        "job_snapshot": {"id": 7, "title": "Java 后端", "raw_text": "JD 原文"},
+        "sections": {"education": [], "skills": [], "experience": [
+            {"text": "交付批处理模块", "fact_ids": ["f1"], "matched_requirements": ["Java"]},
+        ]},
         "facts": [{"id": "f1", "revision": 2, "snapshot": {"content": "批处理"}}],
     }
     reordered = {
         "facts": package["facts"], "sections": package["sections"],
-        "job": package["job"], "draft_revision": 4, "schema_version": 1,
+        "job_snapshot": package["job_snapshot"], "draft_revision": 4, "schema_version": 1,
     }
     assert hash_approval_package(package) == hash_approval_package(reordered)
     changed = {**package, "facts": [{"id": "f1", "revision": 3, "snapshot": {"content": "批处理"}}]}
     assert hash_approval_package(package) != hash_approval_package(changed)
+    changed_claim = {**package, "sections": {**package["sections"], "experience": [
+        {**package["sections"]["experience"][0], "text": "另一条简历文案"},
+    ]}}
+    assert hash_approval_package(package) != hash_approval_package(changed_claim)
+    changed_job = {**package, "job_snapshot": {**package["job_snapshot"], "raw_text": "不同 JD"}}
+    assert hash_approval_package(package) != hash_approval_package(changed_job)
+    changed_source = {**package, "facts": [
+        {"id": "f1", "revision": 2, "snapshot": {"content": "不同来源正文"}},
+    ]}
+    assert hash_approval_package(package) != hash_approval_package(changed_source)
 ```
 
-测试文件导入 `build_approval_package` 和 `hash_approval_package`。另写 `test_package_contains_job_and_only_cited_revisions()`：输入两个已检索事实，但 claim 只引用 `f1`，断言 package 保留职位原始 JD、sections 和 `f1` 的 revision snapshot，不含 `f2`；把 claim 改为引用未检索的 `f3` 时断言构包抛出 `ValueError`。
+测试文件导入 `build_approval_package` 和 `hash_approval_package`。另写 `test_package_contains_job_and_only_cited_revisions()`：输入三个已检索事实，但 claim 只引用 `f1` 和 `f2`，断言即使输入顺序相反，package 也按 ID 排成 `f1`、`f2`，并保留 `job_snapshot` 的原始 JD；未引用的 `f3` 不进入 package。把 claim 改为引用未检索的 `f4` 时断言构包抛出 `ValueError`。
 
 - [ ] **Step 2: 确认 hash 测试先失败**
 
@@ -162,7 +174,7 @@ Expected: FAIL，因为批准快照构建器尚不存在。
 
 - [ ] **Step 3: 实现批准包构造和规范 JSON 哈希**
 
-实现 `approval_snapshots.py`：将 section 顺序固定为 `education`、`skills`、`experience`；仅选择被主张引用的事实，按 fact ID 排序并拒绝工作流未检索到的引用；保留职位原始 JD、解析结果和 URL。`hash_approval_package()` 使用：
+实现 `approval_snapshots.py`：批准包用固定键 `job_snapshot` 保存职位原始 JD、解析结果和 URL；section 顺序固定为 `education`、`skills`、`experience`；仅选择被主张引用的事实，按 fact ID 排序并拒绝工作流未检索到的引用；每条 claim 保留原文、事实 ID 和匹配要求。`hash_approval_package()` 使用：
 
 ```python
 payload = json.dumps(
@@ -175,7 +187,7 @@ return hashlib.sha256(payload).hexdigest()
 
 Run: `.venv/Scripts/python.exe -m pytest -q tests/test_approval_snapshots.py`
 
-Expected: PASS；对象键顺序不影响哈希，职位、主张文本、引用事实内容或修订变化会改变哈希，重复相同输入得到同一 64 位小写摘要。
+Expected: PASS；对象键顺序不影响哈希，职位、主张文本、引用事实内容或修订变化会改变哈希，未引用事实不进入 package，重复相同输入得到同一 64 位小写摘要。
 
 - [ ] **Step 5: 提交快照切片**
 
@@ -250,7 +262,7 @@ Expected: FAIL，因为 `approvals_repo.py` 尚不存在。
 
 - [ ] **Step 3: 实现事务仓储和事实修订核验**
 
-`persist_approval()` 在一个 `with conn.transaction():` 中，以稳定 ID 顺序锁定全部 retrieved facts，要求每条仍启用、confirmed 且 revision 与工作流快照一致；锁定并读取 job；只为主张引用的事实读取不可变 `fact_revisions.snapshot`；在事务内调用 `build_approval_package()` 与 `hash_approval_package()`。随后拆分 package：`resume_versions.content` 只存 `schema_version`、`draft_revision`、职位快照和 sections；事实正文仅存入 `resume_version_facts`。再插入所有 `resume_claims`、唯一 `workflow_approvals` 和一个 `resume.approved` 事件。事件 payload 仅含 run、revision、version、hash 和事实数量。返回从 `workflow_approvals` 读回的字典行，并附完整的内存 package 和 hash。插入失败必须原样抛出以触发整笔事务回滚。
+`persist_approval()` 在一个 `with conn.transaction():` 中，先从 sections 收集唯一引用 fact IDs，并确认它们都属于工作流的 retrieved facts；按稳定 ID 顺序只锁定这些被引用事实，要求每条仍启用、confirmed 且 revision 与工作流快照一致。未被主张引用的检索事实不阻止批准。随后锁定并读取 job，只为引用事实读取不可变 `fact_revisions.snapshot`，再在事务内调用 `build_approval_package()` 与 `hash_approval_package()`。随后拆分 package：`resume_versions.content` 只存 `schema_version`、`draft_revision`、`job_snapshot` 和 sections；事实正文仅存入 `resume_version_facts`。再插入所有 `resume_claims`、唯一 `workflow_approvals` 和一个 `resume.approved` 事件。事件 payload 仅含 run、revision、version、hash 和事实数量。返回从 `workflow_approvals` 读回的字典行，并附完整的内存 package 和 hash。插入失败必须原样抛出以触发整笔事务回滚。
 
 事实不存在、已停用、未确认或修订不匹配时，仓储抛出专用 `ApprovalConflict`；API 将它映射为 HTTP 409，不吞掉其他数据库错误。
 
@@ -259,7 +271,8 @@ Expected: FAIL，因为 `approvals_repo.py` 尚不存在。
 ```python
 with conn.transaction():
     job = lock_job(conn, job_id)  # SELECT ... FOR SHARE
-    locked_facts = lock_and_validate_facts(conn, retrieved_facts)  # ordered SELECT ... FOR UPDATE
+    cited_ids = cited_fact_ids(sections)
+    locked_facts = lock_and_validate_facts(conn, cited_ids, retrieved_facts)  # cited IDs only, ordered SELECT ... FOR UPDATE
     fact_snapshots = load_cited_fact_revisions(conn, sections, locked_facts)
     package = build_approval_package(
         job=job, sections=sections, fact_snapshots=fact_snapshots,

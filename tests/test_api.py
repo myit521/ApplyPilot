@@ -6,6 +6,7 @@
 
 import json
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -52,11 +53,12 @@ CLAIMS_JSON = json.dumps({
 class FakeAdapter:
     def __init__(self):
         self.fact_id = None
+        self.jd_json = JD_JSON
         self.generation_prompts = []
 
     def complete(self, system: str, user: str) -> str:
         if "职位描述解析器" in system:
-            return JD_JSON
+            return self.jd_json
         if "事实提取器" in system:
             return FACTS_JSON
         if "事实一致性复核员" in system:
@@ -256,9 +258,21 @@ def test_readiness_rejects_uninitialized_business_schema():
 
 
 def reach_waiting_approval(client: TestClient) -> tuple[str, str]:
+    unique_term = f"T7Unique{uuid.uuid4().hex}"
+    client.adapter.jd_json = json.dumps({
+        "job_title": "Java 后端开发",
+        "required": ["熟悉 Java"],
+        "preferred": [],
+        "responsibilities": ["参与后端开发"],
+        "keywords": [
+            {"term": "Java", "importance": "required"},
+            {"term": unique_term, "importance": "preferred"},
+        ],
+        "unknowns": [],
+    })
     fact = client.post("/api/facts", json={
-        "fact_type": "project", "source_name": "T7 fixture",
-        "content": "Built batch API", "skills": ["Java"],
+        "fact_type": "project", "source_name": f"T7 fixture {unique_term}",
+        "content": f"Built batch API {unique_term}", "skills": ["Java", unique_term],
         "metrics": ["6 个批量接口"],
     }).json()
     client.adapter.fact_id = fact["id"]
@@ -266,7 +280,8 @@ def reach_waiting_approval(client: TestClient) -> tuple[str, str]:
                             json={"expected_revision": fact["revision"]})
     assert confirmed.status_code == 200
     job = client.post("/api/jobs", json={
-        "title": "Java 后端", "company": "T7 fixture", "raw_text": "Java 后端工程师",
+        "title": "Java 后端", "company": "T7 fixture",
+        "raw_text": f"Java 后端工程师 {unique_term}",
     }).json()
     run_id = client.post("/api/workflows", json={"job_id": job["id"]}).json()["run_id"]
     state = wait_for_status(client, run_id)
@@ -444,3 +459,113 @@ def test_edit_and_approval_are_serialized_for_one_revision(client):
                               json={"approved": True, "expected_revision": 1})
         responses = [edit.result(), approve.result()]
     assert sorted(response.status_code for response in responses) == [200, 409]
+
+
+def test_approved_docx_and_review_use_frozen_job_and_fact_snapshots(client):
+    run_id, fact_id = reach_waiting_approval(client)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1}).json()
+    version_id = approved["resume_version_id"]
+    fact = next(item for item in client.get("/api/facts", params={"enabled": "false"}).json()
+                if item["id"] == fact_id)
+    changed_fact = client.put(f"/api/facts/{fact_id}", json={
+        "expected_revision": fact["revision"], "content": "Changed after approval",
+    })
+    assert changed_fact.status_code == 200
+    with db.connect(client.database_dsn) as conn:
+        conn.execute("UPDATE jobs SET title='Changed title', raw_text='Changed JD' "
+                     "WHERE id=(SELECT rv.job_id FROM workflow_approvals wa "
+                     "JOIN resume_versions rv ON rv.id=wa.version_id WHERE wa.run_id=%s)",
+                     (run_id,))
+        frozen_fact = conn.execute(
+            "SELECT snapshot FROM resume_version_facts WHERE version_id=%s AND fact_id=%s",
+            (version_id, fact_id),
+        ).fetchone()["snapshot"]
+        assert frozen_fact["content"].startswith("Built batch API")
+
+    response = client.get(f"/api/resume-versions/{version_id}/docx")
+    assert response.status_code == 200
+    from io import BytesIO
+    from docx import Document
+
+    text = "\n".join(p.text for p in Document(BytesIO(response.content)).paragraphs)
+    assert "Java 后端" in text
+    assert "Changed title" not in text
+    review_page = client.get(f"/review/{run_id}")
+    assert review_page.status_code == 200
+    assert "Built batch API" in review_page.text
+    assert "Changed after approval" not in review_page.text
+
+
+def test_pending_approval_page_has_recovery_without_edit_or_decision_controls(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_invoke_failing_once(*args, **kwargs):
+        nonlocal failed
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return graph.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_invoke_failing_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+    version_id = approved.json()["resume_version_id"]
+
+    review_page = client.get(f"/review/{run_id}")
+    assert review_page.status_code == 200
+    assert "已批准、待恢复对账" in review_page.text
+    assert f"/api/resume-versions/{version_id}/docx" in review_page.text
+    assert 'id="retry-reconciliation"' in review_page.text
+    assert 'id="save-edit"' not in review_page.text
+    assert 'id="approve"' not in review_page.text
+    assert 'id="reject"' not in review_page.text
+    assert "<textarea" not in review_page.text
+
+    home = client.get("/")
+    assert f'href="/review/{run_id}">重试对账</a>' in home.text
+    monkeypatch.setattr(api, "build_graph", real_build_graph)
+    retry = client.post(f"/api/workflows/{run_id}/approve",
+                        json={"approved": True, "expected_revision": 1})
+    assert retry.status_code == 200
+    assert retry.json()["resume_version_id"] == version_id
+
+
+def test_legacy_resume_version_still_exports_with_current_job_title(client):
+    job = client.post("/api/jobs", json={
+        "title": "Legacy Java 后端", "company": "Legacy fixture", "raw_text": "原始职位",
+    }).json()
+    old_content = {"sections": {
+        "education": [], "skills": [],
+        "experience": [{"text": "保留旧版内容", "fact_ids": [], "matched_requirements": []}],
+    }}
+    with db.connect(client.database_dsn) as conn:
+        version_id = conn.execute(
+            "INSERT INTO resume_versions (job_id, content, status) "
+            "VALUES (%s, %s::jsonb, 'approved') RETURNING id",
+            (job["id"], json.dumps(old_content)),
+        ).fetchone()["id"]
+
+    response = client.get(f"/api/resume-versions/{version_id}/docx")
+    assert response.status_code == 200
+    from io import BytesIO
+    from docx import Document
+
+    text = "\n".join(p.text for p in Document(BytesIO(response.content)).paragraphs)
+    assert "Legacy Java 后端" in text
+    assert "保留旧版内容" in text

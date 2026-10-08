@@ -16,6 +16,9 @@
   button { padding: .5rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-size: .95rem; }
   #approve { background: #15803d; color: #fff; }
   #reject { background: #b91c1c; color: #fff; }
+  #retry-reconciliation { background: #1d4ed8; color: #fff; }
+  .approval-state { border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+  .approval-state a { margin-right: 1rem; }
   #feedback { flex: 1; padding: .5rem; border: 1px solid #cbd5e1; border-radius: 6px; }
   #result { margin-top: 1rem; font-weight: 600; }
   .error { color: #b91c1c; font-size: .85rem; }
@@ -24,6 +27,20 @@
 <body>
 <h1>简历审批 <small>{{ run_id }}</small></h1>
 <p>草稿修订 {{ draft_revision }} · 共 {{ total }} 条内容。每条下方列出其引用的事实原文；只有通过确定性和语义校验后才能批准。</p>
+
+{% if approval_reconciliation_pending %}
+<section id="approval-pending" class="approval-state">
+  <h2>已批准、待恢复对账</h2>
+  <p>简历版本已冻结。工作流状态尚未同步，可稍后重试。</p>
+  <a href="/api/resume-versions/{{ resume_version_id }}/docx">下载冻结版本 DOCX</a>
+  <button id="retry-reconciliation">重试状态同步</button>
+</section>
+{% elif resume_version_id %}
+<section id="approval-complete" class="approval-state">
+  <h2>已批准，版本已冻结</h2>
+  <a href="/api/resume-versions/{{ resume_version_id }}/docx">下载冻结版本 DOCX</a>
+</section>
+{% endif %}
 
 {% if changes %}
 <section id="draft-diff">
@@ -45,8 +62,10 @@
 <h2>{{ section_title }}</h2>
 {% for c in sections[section_name] %}
 <div class="claim">
-  <label for="claim-{{ section_name }}-{{ loop.index0 }}">简历表述</label>
+  {% if can_review %}<label for="claim-{{ section_name }}-{{ loop.index0 }}">简历表述</label>{% else %}<strong>简历表述</strong>{% endif %}
+  {% if can_review %}
   <textarea id="claim-{{ section_name }}-{{ loop.index0 }}" class="claim-edit" data-section="{{ section_name }}">{{ c.text }}</textarea>
+  {% else %}<p class="claim-text">{{ c.text }}</p>{% endif %}
   {% for f in c.facts %}
   <div class="fact"><span class="fact-id">{{ f.id }}</span>｜{{ f.source_name }}：{{ f.content }}{% if f.metrics %}｜指标: {{ f.metrics|join('、') }}{% endif %}</div>
   {% endfor %}
@@ -62,7 +81,7 @@
   <input id="feedback" placeholder="退回意见（退回时填写）">
   <button id="reject">退回重新生成</button>
 </div>
-{% else %}<p>当前工作流状态：{{ status }}，不能编辑或批准。</p>{% endif %}
+{% elif not resume_version_id %}<p>当前工作流状态：{{ status }}，不能编辑或批准。</p>{% endif %}
 <div id="result"></div>
 
 <script>
@@ -89,6 +108,7 @@ async function decide(approved) {
 const approve = document.getElementById('approve');
 const reject = document.getElementById('reject');
 const saveEdit = document.getElementById('save-edit');
+const retryReconciliation = document.getElementById('retry-reconciliation');
 if (approve) approve.onclick = () => decide(true);
 if (reject) reject.onclick = () => decide(false);
 if (saveEdit) saveEdit.onclick = async () => {
@@ -101,6 +121,24 @@ if (saveEdit) saveEdit.onclick = async () => {
   if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
   el.textContent = `修订已校验，当前状态: ${data.status}。正在刷新。`;
   if (data.status === 'WAITING_APPROVAL') window.location.reload();
+};
+if (retryReconciliation) retryReconciliation.onclick = async () => {
+  const el = document.getElementById('result');
+  retryReconciliation.disabled = true;
+  try {
+    const resp = await post('approve', { approved: true, expected_revision: draftRevision });
+    const data = await resp.json();
+    if (!resp.ok) {
+      el.textContent = `错误: ${data.detail}`;
+      el.className = 'error';
+    } else if (data.status === 'READY_TO_APPLY') {
+      window.location.reload();
+    } else {
+      el.innerHTML = `已批准，仍待恢复对账。<a href="/api/resume-versions/${data.resume_version_id}/docx">下载冻结版本 DOCX</a>`;
+    }
+  } finally {
+    retryReconciliation.disabled = false;
+  }
 };
 </script>
 </body>

@@ -365,11 +365,26 @@ def test_approval_retry_reconciles_checkpoint_without_duplicate_rows(client, mon
                         json={"approved": True, "expected_revision": 1})
     assert first.status_code == 202
     version_id = first.json()["resume_version_id"]
+
+    def graph_unavailable(*args, **kwargs):
+        raise RuntimeError("checkpoint unavailable")
+    monkeypatch.setattr(api, "build_graph", graph_unavailable)
+    pending_retry = client.post(f"/api/workflows/{run_id}/approve",
+                                json={"approved": True, "expected_revision": 1})
+    assert pending_retry.status_code == 202
+    assert pending_retry.json()["resume_version_id"] == version_id
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_once)
     second = client.post(f"/api/workflows/{run_id}/approve",
                          json={"approved": True, "expected_revision": 1})
     assert second.status_code == 200
     assert second.json()["resume_version_id"] == version_id
     assert second.json()["content_sha256"] == first.json()["content_sha256"]
+    monkeypatch.setattr(api, "build_graph", graph_unavailable)
+    third = client.post(f"/api/workflows/{run_id}/approve",
+                        json={"approved": True, "expected_revision": 1})
+    assert third.status_code == 200
+    assert third.json()["resume_version_id"] == version_id
     with db.connect(client.database_dsn) as conn:
         assert conn.execute("SELECT count(*) AS n FROM workflow_approvals WHERE run_id=%s",
                             (run_id,)).fetchone()["n"] == 1
@@ -449,7 +464,7 @@ Expected: FAIL，因为 API 当前先推进 checkpoint，且不持久化批准�
 
 - [ ] **Step 3: 实现 run 锁、批准先查和两阶段流程**
 
-在 `approvals_repo.py` 增加 `workflow_lock(conn, run_id)` context manager，使用 session-level advisory lock 并在 `finally` 释放。approve 和 edit 都在锁内读取 checkpoint、比较 revision 并完成其 checkpoint 操作。批准首先查 `workflow_approvals`：同 run/修订的批准请求复用记录并只执行必要对账；不同修订或非批准请求返回 409。新批准先调用 `persist_approval()` 提交业务事务，再恢复 LangGraph。捕获 `ApprovalConflict` 并映射到 HTTP 409；图已 READY 时只补 `graph_reconciled`；图仍等待 approval 时恢复一次；图推进异常或状态无法识别时返回 202 并暴露 pending 状态。
+在 `approvals_repo.py` 增加 `workflow_lock(conn, run_id)` context manager，使用 session-level advisory lock 并在 `finally` 释放。approve 和 edit 都在锁内先查 PostgreSQL 批准记录。approve 对已对账记录直接返回同一结果，不构建 LangGraph；有待对账记录时才尝试构建图，构图或 checkpoint 失败都返回 202 和同一版本；无批准记录时才构建图、核对状态，并继续创建审批包。edit 发现已有批准记录时立即返回 409，不构建图。不同修订或非批准重试返回 409。新批准先调用 `persist_approval()` 提交业务事务，再恢复 LangGraph。捕获 `ApprovalConflict` 并映射到 HTTP 409；图已 READY 时只补 `graph_reconciled`；图仍等待 approval 时恢复一次；图推进异常或状态无法识别时返回 202 并暴露 pending 状态。
 
 `WorkflowStatus` 增加 API 派生状态 `APPROVAL_RECONCILIATION_PENDING`。`_summarize_state()` 必须先查 PostgreSQL 的批准记录。若存在记录，则由存储的版本 content 还原 sections，并返回 `resume_version_id`、`draft_revision`、`content_sha256`、`waiting=false` 和 `approval_reconciliation_pending`；`graph_reconciled=false` 时 status 为 `APPROVAL_RECONCILIATION_PENDING`，否则为 `READY_TO_APPLY`。同时将 `workflow_runs.status/current_node/updated_at` 更新为对应持久状态，使首页能展示正确状态。此分支不得调用 `graph.get_state()`，所以 checkpoint 暂时不可用也能展示冻结版本，并且编辑/审批入口会因已批准记录而拒绝操作。未批准的 run 才走现有 checkpoint 摘要路径。
 
@@ -460,6 +475,7 @@ with db.connect(dsn) as conn:
     with workflow_lock(conn, run_id):
         approval = get_approval(conn, run_id)
         if approval is None:
+            graph = get_graph()
             state = graph.get_state(config)
             require_waiting_approval_and_current_revision(state, req.expected_revision)
             if not req.approved:
@@ -470,6 +486,13 @@ with db.connect(dsn) as conn:
                 job_id=state.values["job_id"], sections=state.values["resume"].model_dump(mode="json"),
                 retrieved_facts=state.values["retrieved_facts"],
             )
+        elif approval["graph_reconciled"]:
+            return approved_summary(approval)
+        else:
+            try:
+                graph = get_graph()
+            except Exception:
+                return pending_response(approval)
         return reconcile_graph_or_202(graph, config, approval, req)
 ```
 

@@ -7,7 +7,9 @@
 import json
 import time
 import uuid
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
@@ -407,6 +409,145 @@ def test_pending_approval_summary_survives_checkpoint_read_failure(client, monke
     with db.connect(client.database_dsn) as conn:
         run = conn.execute("SELECT status FROM workflow_runs WHERE id=%s", (run_id,)).fetchone()
         assert run["status"] == "APPROVAL_RECONCILIATION_PENDING"
+
+
+def test_pending_summary_does_not_overwrite_completed_reconciliation(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_failing_invoke_once(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return graph.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_invoke_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+    monkeypatch.setattr(api, "build_graph", real_build_graph)
+
+    reconciliation_locked = Event()
+    finish_reconciliation = Event()
+    reconciliation_done = Event()
+    summary_read_approval = Event()
+    summary_attempted_lock = Event()
+    real_workflow_lock = api.approvals_repo.workflow_lock
+    real_get_approval = api.approvals_repo.get_approval
+
+    @contextmanager
+    def track_summary_lock(conn, target_run_id):
+        if target_run_id == run_id:
+            summary_attempted_lock.set()
+        with real_workflow_lock(conn, target_run_id):
+            yield
+
+    def pause_summary_after_approval_read(conn, target_run_id):
+        approval = real_get_approval(conn, target_run_id)
+        if target_run_id == run_id:
+            summary_read_approval.set()
+            assert reconciliation_done.wait(timeout=10)
+        return approval
+
+    monkeypatch.setattr(api.approvals_repo, "workflow_lock", track_summary_lock)
+    monkeypatch.setattr(api.approvals_repo, "get_approval", pause_summary_after_approval_read)
+
+    def reconcile_approval():
+        with db.connect(client.database_dsn) as conn:
+            with real_workflow_lock(conn, run_id):
+                reconciliation_locked.set()
+                assert finish_reconciliation.wait(timeout=10)
+                api.approvals_repo.set_graph_reconciled(conn, run_id)
+                conn.execute(
+                    "UPDATE workflow_runs SET current_node='', status='READY_TO_APPLY', "
+                    "error='', updated_at=now() WHERE id=%s",
+                    (run_id,),
+                )
+                reconciliation_done.set()
+
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="reconciler") as reconcile_pool:
+        reconciliation = reconcile_pool.submit(reconcile_approval)
+        try:
+            assert reconciliation_locked.wait(timeout=5)
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="summary-request") as summary_pool:
+                summary_request = summary_pool.submit(client.get, f"/api/workflows/{run_id}")
+                deadline = time.monotonic() + 5
+                while (not summary_read_approval.is_set() and not summary_attempted_lock.is_set()
+                       and time.monotonic() < deadline):
+                    time.sleep(0.01)
+                assert summary_read_approval.is_set() or summary_attempted_lock.is_set()
+                finish_reconciliation.set()
+                reconciliation.result(timeout=5)
+                summary = summary_request.result(timeout=5)
+        finally:
+            finish_reconciliation.set()
+
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "READY_TO_APPLY"
+    assert summary.json()["approval_reconciliation_pending"] is False
+    with db.connect(client.database_dsn) as conn:
+        status = conn.execute("SELECT status FROM workflow_runs WHERE id=%s",
+                              (run_id,)).fetchone()["status"]
+        assert status == "READY_TO_APPLY"
+
+
+def test_workflow_summary_does_not_overwrite_concurrent_approval(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    approval = None
+
+    def build_graph_approving_during_state_read(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+
+        class StateReadProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def get_state(self, *state_args, **state_kwargs):
+                nonlocal approval
+                state = graph.get_state(*state_args, **state_kwargs)
+                if approval is None:
+                    with db.connect(client.database_dsn) as conn:
+                        approval = api.approvals_repo.persist_approval(
+                            conn,
+                            run_id=run_id,
+                            draft_revision=state.values["draft_revision"],
+                            job_id=state.values["job_id"],
+                            sections=state.values["resume"].model_dump(mode="json"),
+                            retrieved_facts=state.values["retrieved_facts"],
+                        )
+                return state
+
+        return StateReadProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_approving_during_state_read)
+    summary = client.get(f"/api/workflows/{run_id}")
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "APPROVAL_RECONCILIATION_PENDING"
+    assert summary.json()["resume_version_id"] == approval["version_id"]
+    with db.connect(client.database_dsn) as conn:
+        status = conn.execute("SELECT status FROM workflow_runs WHERE id=%s",
+                              (run_id,)).fetchone()["status"]
+        assert status == "APPROVAL_RECONCILIATION_PENDING"
+    review = client.get(f"/review/{run_id}")
+    assert 'id="approval-pending"' in review.text
+    assert 'id="approve"' not in review.text
+    assert 'id="reject"' not in review.text
 
 
 def test_two_concurrent_approvals_return_one_version(client):

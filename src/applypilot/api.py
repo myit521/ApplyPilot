@@ -485,10 +485,11 @@ def create_app(
 
     def _summarize_state(run_id: str) -> dict:
         with get_conn() as conn:
-            approval = approvals_repo.get_approval(conn, run_id)
-            if approval is not None:
-                _sync_approval_run_status(conn, approval)
-                return _approval_summary(approval)
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    return _approval_summary(approval)
 
         graph = get_graph()
         config = {"configurable": {"thread_id": run_id}}
@@ -512,20 +513,25 @@ def create_app(
             ],
         }
         with get_conn() as conn:
-            conn.execute(
-                "INSERT INTO workflow_runs (id, current_node, status, retry_count, error) "
-                "VALUES (%s, %s, %s, %s, %s) "
-                "ON CONFLICT (id) DO UPDATE SET current_node = EXCLUDED.current_node, "
-                "status = EXCLUDED.status, retry_count = EXCLUDED.retry_count, "
-                "error = EXCLUDED.error, updated_at = now()",
-                (
-                    run_id,
-                    state.next[0] if state.next else "",
-                    str(summary["status"]),
-                    summary["validation_retries"],
-                    summary["error"],
-                ),
-            )
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    return _approval_summary(approval)
+                conn.execute(
+                    "INSERT INTO workflow_runs (id, current_node, status, retry_count, error) "
+                    "VALUES (%s, %s, %s, %s, %s) "
+                    "ON CONFLICT (id) DO UPDATE SET current_node = EXCLUDED.current_node, "
+                    "status = EXCLUDED.status, retry_count = EXCLUDED.retry_count, "
+                    "error = EXCLUDED.error, updated_at = now()",
+                    (
+                        run_id,
+                        state.next[0] if state.next else "",
+                        str(summary["status"]),
+                        summary["validation_retries"],
+                        summary["error"],
+                    ),
+                )
         return summary
 
     def _run_workflow(run_id: str, jd_text: str, job_id: int) -> None:
@@ -745,7 +751,11 @@ def create_app(
     def review(request: Request, run_id: str) -> HTMLResponse:
         summary = _summarize_state(run_id)
         with get_conn() as conn:
-            approval = approvals_repo.get_approval(conn, run_id)
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    summary = _approval_summary(approval)
             frozen_facts = ({fact["id"]: fact["snapshot"]
                              for fact in approval["package"]["facts"]}
                             if approval is not None else {})

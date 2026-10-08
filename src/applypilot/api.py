@@ -714,8 +714,10 @@ def create_app(
         ).fetchone()
         if version is None:
             raise HTTPException(404, f"简历版本 {version_id} 不存在")
-        sections = ResumeSections.model_validate(version["content"]["sections"])
-        data = render_docx(version["title"] or "未命名职位", sections)
+        saved = version["content"]
+        job_title = (saved.get("job_snapshot") or {}).get("title") or version["title"] or "未命名职位"
+        sections = ResumeSections.model_validate(saved["sections"])
+        data = render_docx(job_title, sections)
         return Response(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -742,45 +744,56 @@ def create_app(
     @app.get("/review/{run_id}", response_class=HTMLResponse)
     def review(request: Request, run_id: str) -> HTMLResponse:
         summary = _summarize_state(run_id)
-        conn = get_conn()
+        with get_conn() as conn:
+            approval = approvals_repo.get_approval(conn, run_id)
+            frozen_facts = ({fact["id"]: fact["snapshot"]
+                             for fact in approval["package"]["facts"]}
+                            if approval is not None else {})
 
-        def with_facts(claims: list[dict]) -> list[dict]:
-            result = []
-            for claim in claims:
-                cited = []
-                for fid in claim["fact_ids"]:
-                    fact = facts_repo.get_fact(conn, fid)
-                    if fact:
-                        cited.append(fact.model_dump(mode="json"))
-                result.append({**claim, "facts": cited})
-            return result
+            def with_facts(claims: list[dict]) -> list[dict]:
+                result = []
+                for claim in claims:
+                    cited = []
+                    for fid in claim["fact_ids"]:
+                        if approval is not None:
+                            fact = frozen_facts.get(fid)
+                            if fact is not None:
+                                cited.append(fact)
+                        else:
+                            fact = facts_repo.get_fact(conn, fid)
+                            if fact:
+                                cited.append(fact.model_dump(mode="json"))
+                    result.append({**claim, "facts": cited})
+                return result
 
-        sections = summary["sections"] or {}
-        previous_sections = summary["previous_sections"] or {}
-        section_titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
-        changes = []
-        for name, title in section_titles.items():
-            before = previous_sections.get(name, [])
-            after = sections.get(name, [])
-            for index in range(max(len(before), len(after))):
-                old_text = before[index]["text"] if index < len(before) else ""
-                new_text = after[index]["text"] if index < len(after) else ""
-                if old_text != new_text:
-                    changes.append({"section": title, "before": old_text, "after": new_text})
-        context = {
-            name: with_facts(sections.get(name, []))
-            for name in ("education", "skills", "experience")
-        }
-        total = sum(len(v) for v in context.values())
-        return TEMPLATES.TemplateResponse(
-            request, "review.html", {
-                "run_id": run_id, "sections": context, "total": total,
-                "draft_revision": summary["draft_revision"], "changes": changes,
-                "validation_errors": summary["validation_errors"],
-                "status": summary["status"],
-                "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
+            sections = summary["sections"] or {}
+            previous_sections = summary["previous_sections"] or {}
+            section_titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
+            changes = []
+            for name, title in section_titles.items():
+                before = previous_sections.get(name, [])
+                after = sections.get(name, [])
+                for index in range(max(len(before), len(after))):
+                    old_text = before[index]["text"] if index < len(before) else ""
+                    new_text = after[index]["text"] if index < len(after) else ""
+                    if old_text != new_text:
+                        changes.append({"section": title, "before": old_text, "after": new_text})
+            context = {
+                name: with_facts(sections.get(name, []))
+                for name in ("education", "skills", "experience")
             }
-        )
+            total = sum(len(v) for v in context.values())
+            return TEMPLATES.TemplateResponse(
+                request, "review.html", {
+                    "run_id": run_id, "sections": context, "total": total,
+                    "draft_revision": summary["draft_revision"], "changes": changes,
+                    "validation_errors": summary["validation_errors"],
+                    "status": summary["status"],
+                    "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
+                    "resume_version_id": summary.get("resume_version_id"),
+                    "approval_reconciliation_pending": summary.get("approval_reconciliation_pending", False),
+                }
+            )
 
     # ---------- 投递记录 ----------
 

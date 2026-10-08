@@ -10,6 +10,7 @@
   th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #e2e2e2; font-size: .9rem; }
   .status { font-weight: 600; }
   .status-WAITING_APPROVAL { color: #b45309; }
+  .status-APPROVAL_RECONCILIATION_PENDING { color: #b45309; }
   .status-READY_TO_APPLY { color: #15803d; }
   .status-FAILED { color: #b91c1c; }
   a { color: #1d4ed8; }
@@ -28,7 +29,7 @@
     <td class="status status-{{ r.status }}">{{ r.status }}</td>
     <td>{{ r.retry_count }}</td>
     <td>{{ r.updated_at }}</td>
-    <td>{% if r.status == 'WAITING_APPROVAL' %}<a href="/review/{{ r.id }}">去审批</a>{% endif %}</td>
+    <td>{% if r.status == 'WAITING_APPROVAL' %}<a href="/review/{{ r.id }}">去审批</a>{% elif r.status == 'APPROVAL_RECONCILIATION_PENDING' %}<a href="/review/{{ r.id }}">重试对账</a>{% elif r.status == 'READY_TO_APPLY' %}<a href="/review/{{ r.id }}">查看冻结版本</a>{% endif %}</td>
   </tr>
   {% endfor %}
 </table>

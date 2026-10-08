@@ -24,7 +24,8 @@ def conn():
 
 @pytest.fixture()
 def clean(conn):
-    for table in ("applications", "resume_claims", "resume_versions",
+    for table in ("applications", "workflow_approvals", "resume_version_facts",
+                  "resume_claims", "resume_versions",
                   "jobs", "workflow_runs", "audit_events", "facts"):
         conn.execute(f"TRUNCATE {table} CASCADE")
     yield conn

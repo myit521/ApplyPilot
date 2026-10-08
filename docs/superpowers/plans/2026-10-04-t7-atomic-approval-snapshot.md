@@ -330,6 +330,7 @@ git commit -m "feat: persist approvals atomically"
 **Files:**
 - Modify: `src/applypilot/api.py`
 - Modify: `src/applypilot/approvals_repo.py`
+- Modify: `src/applypilot/workflow.py`
 - Test: `tests/test_api.py`
 
 **Interfaces:**
@@ -414,6 +415,9 @@ def test_pending_approval_summary_survives_checkpoint_read_failure(client, monke
     assert summary.json()["approval_reconciliation_pending"] is True
     assert summary.json()["resume_version_id"] == approved.json()["resume_version_id"]
     assert summary.json()["waiting"] is False
+    with db.connect(client.database_dsn) as conn:
+        run = conn.execute("SELECT status FROM workflow_runs WHERE id=%s", (run_id,)).fetchone()
+        assert run["status"] == "APPROVAL_RECONCILIATION_PENDING"
 ```
 
 在现有 `tests/test_api.py::client` module fixture 中增加 `c.database_dsn = dsn`。新增以下具体 helper；其他 T7 API 测试调用它获取独立 run 和 fact：
@@ -447,7 +451,7 @@ Expected: FAIL，因为 API 当前先推进 checkpoint，且不持久化批准�
 
 在 `approvals_repo.py` 增加 `workflow_lock(conn, run_id)` context manager，使用 session-level advisory lock 并在 `finally` 释放。approve 和 edit 都在锁内读取 checkpoint、比较 revision 并完成其 checkpoint 操作。批准首先查 `workflow_approvals`：同 run/修订的批准请求复用记录并只执行必要对账；不同修订或非批准请求返回 409。新批准先调用 `persist_approval()` 提交业务事务，再恢复 LangGraph。捕获 `ApprovalConflict` 并映射到 HTTP 409；图已 READY 时只补 `graph_reconciled`；图仍等待 approval 时恢复一次；图推进异常或状态无法识别时返回 202 并暴露 pending 状态。
 
-`_summarize_state()` 必须先查 PostgreSQL 的批准记录。若存在记录，则由存储的版本 content 还原 sections，并返回 `resume_version_id`、`draft_revision`、`content_sha256`、`waiting=false` 和 `approval_reconciliation_pending`；`graph_reconciled=false` 时 status 为 `APPROVAL_RECONCILIATION_PENDING`，否则为 `READY_TO_APPLY`。此分支不得调用 `graph.get_state()`，所以 checkpoint 暂时不可用也能展示冻结版本，并且编辑/审批入口会因已批准记录而拒绝操作。未批准的 run 才走现有 checkpoint 摘要路径。
+`WorkflowStatus` 增加 API 派生状态 `APPROVAL_RECONCILIATION_PENDING`。`_summarize_state()` 必须先查 PostgreSQL 的批准记录。若存在记录，则由存储的版本 content 还原 sections，并返回 `resume_version_id`、`draft_revision`、`content_sha256`、`waiting=false` 和 `approval_reconciliation_pending`；`graph_reconciled=false` 时 status 为 `APPROVAL_RECONCILIATION_PENDING`，否则为 `READY_TO_APPLY`。同时将 `workflow_runs.status/current_node/updated_at` 更新为对应持久状态，使首页能展示正确状态。此分支不得调用 `graph.get_state()`，所以 checkpoint 暂时不可用也能展示冻结版本，并且编辑/审批入口会因已批准记录而拒绝操作。未批准的 run 才走现有 checkpoint 摘要路径。
 
 API 的操作顺序应保持为：
 
@@ -554,6 +558,7 @@ git commit -m "feat: reconcile approval checkpoints idempotently"
 
 **Files:**
 - Modify: `src/applypilot/api.py`
+- Modify: `src/applypilot/templates/index.html`
 - Modify: `src/applypilot/templates/review.html`
 - Modify: `tests/test_api.py`
 - Modify: `docs/design.md`
@@ -623,7 +628,7 @@ data = render_docx(job_title, sections)
 
 - [ ] **Step 4: 更新设计和验证文档**
 
-在审核页对已批准 run 使用 `resume_version_facts.snapshot` 显示来源，不再通过 `facts_repo.get_fact()` 读取可变事实当前行。`review.html` 为 `APPROVAL_RECONCILIATION_PENDING` 明确展示“已批准、待恢复对账”，提供冻结版本下载链接并隐藏编辑/审批操作；`READY_TO_APPLY` 展示已冻结版本下载链接。API 集成测试验证事实更新后审核页仍显示批准时快照。按模板现有方式完成人工 UI 验收，并记录结果。
+在审核页对已批准 run 使用 `resume_version_facts.snapshot` 显示来源，不再通过 `facts_repo.get_fact()` 读取可变事实当前行。`review.html` 为 `APPROVAL_RECONCILIATION_PENDING` 明确展示“已批准、待恢复对账”，提供冻结版本下载链接和“重试状态同步”按钮；按钮重复发送同一幂等批准请求，只恢复 checkpoint，不显示编辑/批准/退回控件。`READY_TO_APPLY` 展示已冻结版本下载链接。首页为 pending run 提供进入审核页的“重试对账”链接。API 集成测试验证事实更新后审核页仍显示批准时快照，pending 页面可以重试且不允许再次编辑或拒绝，并且首页仍可进入该页面。按模板现有方式完成人工 UI 验收，并记录结果。
 
 在 `README.md` 更新 T7 完成状态；在 `docs/design.md` 将 T7 的 PostgreSQL 批准记录、hash 绑定、对账 pending 状态写入审批契约；在路线图标记 T7 完成并把下一项写为 T8；在验证手册和新建的 `docs/t7-execution.md` 记录真实迁移命令、测试结果、故障注入结果、已知限制。不得将未实测的重启扫描或多实例恢复写为已完成。
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from contextlib import contextmanager
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -16,6 +17,16 @@ class ApprovalConflict(Exception):
 
 class ApprovalIntegrityError(RuntimeError):
     """A stored approval snapshot no longer matches its persisted hash."""
+
+
+@contextmanager
+def workflow_lock(conn: psycopg.Connection, run_id: str):
+    """Serialize edits and approval decisions for one workflow run."""
+    conn.execute("SELECT pg_advisory_lock(hashtextextended(%s, 0))", (run_id,))
+    try:
+        yield
+    finally:
+        conn.execute("SELECT pg_advisory_unlock(hashtextextended(%s, 0))", (run_id,))
 
 
 def _cited_fact_ids(sections: dict) -> list[str]:

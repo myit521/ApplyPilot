@@ -541,6 +541,8 @@ def post_approval_concurrently(client, run_id, expected_revision, count):
 
 每个请求处理函数使用自己的 `db.connect()`；测试不能共享 psycopg connection。两个请求必须用相同 run 和草稿修订。
 
+更新现有 `tests/test_api.py::test_full_api_flow`：批准后的同修订重试现在返回 200，并断言版本 ID、draft revision 与内容哈希和首次响应相同；旧的“第二次批准返回 409”预期与 T7 幂等契约冲突。
+
 - [ ] **Step 5: 运行 API / 对账集成测试**
 
 Run: `.venv/Scripts/python.exe -m pytest -q tests/test_api.py`
@@ -631,8 +633,6 @@ data = render_docx(job_title, sections)
 在审核页对已批准 run 使用 `resume_version_facts.snapshot` 显示来源，不再通过 `facts_repo.get_fact()` 读取可变事实当前行。`review.html` 为 `APPROVAL_RECONCILIATION_PENDING` 明确展示“已批准、待恢复对账”，提供冻结版本下载链接和“重试状态同步”按钮；按钮重复发送同一幂等批准请求，只恢复 checkpoint，不显示编辑/批准/退回控件。`READY_TO_APPLY` 展示已冻结版本下载链接。首页为 pending run 提供进入审核页的“重试对账”链接。API 集成测试验证事实更新后审核页仍显示批准时快照，pending 页面可以重试且不允许再次编辑或拒绝，并且首页仍可进入该页面。按模板现有方式完成人工 UI 验收，并记录结果。
 
 在 `README.md` 更新 T7 完成状态；在 `docs/design.md` 将 T7 的 PostgreSQL 批准记录、hash 绑定、对账 pending 状态写入审批契约；在路线图标记 T7 完成并把下一项写为 T8；在验证手册和新建的 `docs/t7-execution.md` 记录真实迁移命令、测试结果、故障注入结果、已知限制。不得将未实测的重启扫描或多实例恢复写为已完成。
-
-更新 `tests/test_api.py` 中旧的“同一 run 第二次 approve 返回 409”断言：相同 `expected_revision` 的成功批准重试应返回 200，并断言版本 ID、draft revision 和 hash 与首次响应一致。
 
 - [ ] **Step 5: 运行 T7 集成与完整回归**
 

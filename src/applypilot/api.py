@@ -355,7 +355,7 @@ def create_app(
                 cancel_requested=cancelled,
             )
             state = graph.get_state(config)
-            if not state.values:
+            if not state.values or (not state.next and not state.values.get("status")):
                 graph.invoke(
                     {"jd_text": job["raw_text"], "job_id": task["job_id"],
                      "validation_retries": 0},

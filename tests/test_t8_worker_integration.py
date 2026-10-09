@@ -182,17 +182,19 @@ def test_restart_reconciles_approved_task_without_second_version(task_database):
         ).fetchone()["n"] == 1
 
 
-def test_killed_process_reclaims_claimed_task(task_database):
+def test_killed_process_reclaims_claimed_task(task_database, tmp_path):
     dsn, job_id = task_database
     with db.connect(dsn) as conn:
         run_id = task_repo.reserve_workflow_task(conn, job_id=job_id)["run_id"]
 
     child_code = """
 import sys, time
+from pathlib import Path
 from fastapi.testclient import TestClient
 from applypilot.api import create_app
 class SlowAdapter:
     def complete(self, system, user):
+        Path(sys.argv[2]).write_text('model_entered', encoding='utf-8')
         time.sleep(30)
         raise RuntimeError('the child should be killed before the model returns')
 with TestClient(create_app(dsn=sys.argv[1], adapter=SlowAdapter())):
@@ -200,14 +202,19 @@ with TestClient(create_app(dsn=sys.argv[1], adapter=SlowAdapter())):
 """
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+    marker = tmp_path / "model-entered.txt"
     child = subprocess.Popen(
-        [sys.executable, "-c", child_code, dsn],
+        [sys.executable, "-c", child_code, dsn, str(marker)],
         cwd=Path(__file__).resolve().parents[1], env=env,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
         claimed = wait_task(dsn, run_id, "running", timeout=15)
         assert claimed["attempt_count"] == 1
+        deadline = time.monotonic() + 15
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert marker.exists(), "child did not enter the model call"
         child.kill()
         child.wait(timeout=5)
     finally:

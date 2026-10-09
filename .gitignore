@@ -19,3 +19,6 @@ Thumbs.db
 
 # 冒烟测试产物
 resume-v*.docx
+
+# 本机数据库备份含个人资料
+*.dump

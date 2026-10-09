@@ -1,13 +1,12 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: applypilot-db
     environment:
       POSTGRES_USER: applypilot
       POSTGRES_PASSWORD: applypilot
       POSTGRES_DB: applypilot
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
@@ -16,6 +15,22 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://applypilot:applypilot@db:5432/applypilot
+      # 仅本机演示：密钥只从宿主环境传入，不写入镜像或仓库。
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db-data:

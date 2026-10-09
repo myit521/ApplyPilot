@@ -29,10 +29,12 @@
     <td class="status status-{{ r.status }}">{{ r.status }}</td>
     <td>{{ r.retry_count }}</td>
     <td>{{ r.updated_at }}</td>
-    <td>{% if r.status == 'WAITING_APPROVAL' %}<a href="/review/{{ r.id }}">去审批</a>{% elif r.status == 'APPROVAL_RECONCILIATION_PENDING' %}<a href="/review/{{ r.id }}">重试对账</a>{% elif r.status == 'READY_TO_APPLY' %}<a href="/review/{{ r.id }}">查看冻结版本</a>{% endif %}</td>
+    <td>{% if r.status == 'WAITING_APPROVAL' %}<a href="/review/{{ r.id }}">去审批</a>{% elif r.status == 'APPROVAL_RECONCILIATION_PENDING' %}<a href="/review/{{ r.id }}">重试对账</a>{% elif r.status == 'READY_TO_APPLY' %}<a href="/review/{{ r.id }}">查看冻结版本</a>{% endif %}
+      {% if r.status in ('QUEUED', 'RUNNING', 'RETRY_WAIT', 'WAITING_APPROVAL') %}<button type="button" class="cancel-run" data-run-id="{{ r.id }}">取消任务</button>{% endif %}</td>
   </tr>
   {% endfor %}
 </table>
+<p id="run-action-status" role="status" aria-live="polite"></p>
 
 <h2>职位</h2>
 <table>
@@ -41,5 +43,26 @@
   <tr><td>{{ j.id }}</td><td>{{ j.title or '（未解析）' }}</td><td>{{ '是' if j.parsed else '否' }}</td><td>{{ j.created_at }}</td></tr>
   {% endfor %}
 </table>
+<script>
+for (const button of document.querySelectorAll('.cancel-run')) {
+  button.onclick = async () => {
+    button.disabled = true;
+    const message = document.getElementById('run-action-status');
+    try {
+      const response = await fetch('/api/workflows/' + encodeURIComponent(button.dataset.runId) + '/cancel', {method: 'POST'});
+      if (!response.ok) {
+        const data = await response.json();
+        message.textContent = data.detail || '取消失败，请刷新查看当前状态';
+        button.disabled = false;
+        return;
+      }
+      window.location.reload();
+    } catch (_) {
+      message.textContent = '网络错误，请刷新查看任务状态';
+      button.disabled = false;
+    }
+  };
+}
+</script>
 </body>
 </html>

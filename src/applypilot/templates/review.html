@@ -27,6 +27,11 @@
 <body>
 <h1>简历审批 <small>{{ run_id }}</small></h1>
 <p>草稿修订 {{ draft_revision }} · 共 {{ total }} 条内容。每条下方列出其引用的事实原文；只有通过确定性和语义校验后才能批准。</p>
+{% if resume_version_id and not profile_in_version %}
+<p class="error">此批准版本没有冻结联系方式；下载的 DOCX 不会补入后来修改的资料。</p>
+{% elif can_review and not profile_confirmed %}
+<p class="error">联系资料尚未确认，批准后 DOCX 将不包含姓名和联系方式。请先到<a href="/profile">资料与事实确认</a>页核对并确认。</p>
+{% endif %}
 
 {% if approval_reconciliation_pending %}
 <section id="approval-pending" class="approval-state">
@@ -89,6 +94,11 @@
 <script>
 const runId = {{ run_id | tojson }};
 const draftRevision = {{ draft_revision | tojson }};
+function detail(data) {
+  return Array.isArray(data.detail)
+    ? data.detail.map(item => item.msg || String(item)).join('；')
+    : (data.detail || '请求失败');
+}
 async function post(path, body) {
   return fetch(`/api/workflows/${runId}/${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
@@ -99,9 +109,9 @@ async function decide(approved) {
   const resp = await post('approve', body);
   const data = await resp.json();
   const el = document.getElementById('result');
-  if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
-  if (data.status === 'READY_TO_APPLY') {
-    el.innerHTML = `已批准，简历版本 #${data.resume_version_id} 已冻结。<a href="/api/resume-versions/${data.resume_version_id}/docx">下载 DOCX</a>`;
+  if (!resp.ok) { el.textContent = `错误: ${detail(data)}`; el.className = 'error'; return; }
+  if (approved && data.resume_version_id) {
+    window.location.reload();
   } else {
     el.textContent = `已退回，工作流状态: ${data.status}。正在刷新新草稿。`;
     if (data.status === 'WAITING_APPROVAL') window.location.reload();
@@ -120,7 +130,7 @@ if (saveEdit) saveEdit.onclick = async () => {
   const resp = await post('edit', { expected_revision: draftRevision, sections });
   const data = await resp.json();
   const el = document.getElementById('result');
-  if (!resp.ok) { el.textContent = `错误: ${data.detail}`; el.className = 'error'; return; }
+  if (!resp.ok) { el.textContent = `错误: ${detail(data)}`; el.className = 'error'; return; }
   el.textContent = `修订已校验，当前状态: ${data.status}。正在刷新。`;
   if (data.status === 'WAITING_APPROVAL') window.location.reload();
 };
@@ -131,7 +141,7 @@ if (retryReconciliation) retryReconciliation.onclick = async () => {
     const resp = await post('approve', { approved: true, expected_revision: draftRevision });
     const data = await resp.json();
     if (!resp.ok) {
-      el.textContent = `错误: ${data.detail}`;
+      el.textContent = `错误: ${detail(data)}`;
       el.className = 'error';
     } else if (data.status === 'READY_TO_APPLY') {
       window.location.reload();

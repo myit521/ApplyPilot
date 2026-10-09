@@ -60,6 +60,14 @@ a { color: #1d4ed8; }
 <h4 id="semantic-heading" hidden>待人工核对的语义候选</h4><ul id="semantic-candidates"></ul>
 </section>
 </section>
+<section id="workflow-actions" hidden>
+<h3>生成定制简历</h3>
+<p>请先生成上方匹配报告并逐项核对证据，再启动草稿。生成后仍需人工编辑、校验和批准；此操作不会投递。</p>
+<button id="start-workflow" type="button">开始生成草稿</button>
+<button id="cancel-workflow" type="button" hidden>取消当前任务</button>
+<a id="review-link" hidden>前往简历审批</a>
+<p id="workflow-status" role="status" aria-live="polite"></p>
+</section>
 <script>
 const el = id => document.getElementById(id);
 let offset = 0;
@@ -67,6 +75,9 @@ const limit = 20;
 let selected = null;
 let detailRequest = 0;
 let matchRequest = 0;
+let workflowRequest = 0;
+let workflowKey = null;
+let currentRun = null;
 const labels = {
   required: '必备条件', preferred: '加分项', responsibility: '岗位职责', keyword: '技术关键词',
   supported: '支持', partial: '部分支持', no_evidence: '无证据', unknown: '未知',
@@ -86,6 +97,10 @@ async function request(url, options) {
 }
 function showDetail(job) {
   selected = job;
+  ++workflowRequest;
+  ++matchRequest;
+  workflowKey = null;
+  currentRun = null;
   el('detail').hidden = false;
   for (const [key, value] of Object.entries({title: job.title || '（未填写）', company: job.company || '（未填写）', source: job.source, url: job.url || '（无）', created: job.created_at, raw: job.raw_text, parsed: job.parsed ? JSON.stringify(job.parsed, null, 2) : '尚未解析'})) {
     el('detail-' + key).textContent = value;
@@ -94,6 +109,11 @@ function showDetail(job) {
   el('match-job').hidden = !job.parsed;
   el('match-report').hidden = true;
   status('match-status', '');
+  el('workflow-actions').hidden = !job.parsed;
+  el('start-workflow').disabled = true;
+  el('cancel-workflow').hidden = true;
+  el('review-link').hidden = true;
+  status('workflow-status', '');
 }
 async function openDetail(id) {
   const token = ++detailRequest;
@@ -218,6 +238,7 @@ function renderMatchReport(report) {
   }
   el('semantic-heading').hidden = !report.semantic_candidates.length;
   el('match-report').hidden = false;
+  el('start-workflow').disabled = false;
 }
 el('match-job').onclick = async () => {
   if (!selected || !selected.parsed) return;
@@ -235,6 +256,59 @@ el('match-job').onclick = async () => {
   } finally {
     if (token === matchRequest) el('match-job').disabled = false;
   }
+};
+async function pollWorkflow(runId, token) {
+  if (token !== workflowRequest) return;
+  try {
+    const state = await request('/api/workflows/' + encodeURIComponent(runId));
+    if (token !== workflowRequest) return;
+    const label = {QUEUED: '排队中', RUNNING: '生成中', RETRY_WAIT: '等待重试',
+      WAITING_APPROVAL: '等待人工审批', APPROVAL_RECONCILIATION_PENDING: '已批准，待对账',
+      READY_TO_APPLY: '已批准', COMPLETED: '已完成', FAILED: '失败', CANCELLED: '已取消'};
+    status('workflow-status', '工作流 ' + runId + '：' + (label[state.status] || state.status) +
+      (state.error ? '（' + state.error + '）' : ''), state.status === 'FAILED');
+    const reviewable = ['WAITING_APPROVAL', 'APPROVAL_RECONCILIATION_PENDING', 'READY_TO_APPLY'].includes(state.status);
+    el('review-link').hidden = !reviewable;
+    if (reviewable) el('review-link').href = '/review/' + encodeURIComponent(runId);
+    el('cancel-workflow').hidden = !['QUEUED', 'RUNNING', 'RETRY_WAIT', 'WAITING_APPROVAL'].includes(state.status);
+    if (['FAILED', 'CANCELLED'].includes(state.status)) {
+      workflowKey = null;
+      el('start-workflow').disabled = el('match-report').hidden;
+    }
+    if (!['FAILED', 'CANCELLED', 'READY_TO_APPLY', 'COMPLETED', 'WAITING_APPROVAL', 'APPROVAL_RECONCILIATION_PENDING'].includes(state.status)) {
+      setTimeout(() => pollWorkflow(runId, token), 2000);
+    }
+  } catch (error) {
+    if (token === workflowRequest) status('workflow-status', error.message + '。可从审核台查看任务。', true);
+  }
+}
+el('start-workflow').onclick = async () => {
+  if (!selected) return;
+  const token = ++workflowRequest;
+  const jobId = selected.id;
+  el('start-workflow').disabled = true;
+  status('workflow-status', '正在创建任务…');
+  try {
+    workflowKey ||= crypto.randomUUID();
+    const run = await request('/api/workflows', {method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Idempotency-Key': workflowKey},
+      body: JSON.stringify({job_id: jobId})});
+    if (token !== workflowRequest) return;
+    currentRun = run.run_id;
+    pollWorkflow(currentRun, token);
+  } catch (error) {
+    if (token === workflowRequest) {
+      status('workflow-status', error.message + '。请先检查审核台，避免重复创建。', true);
+      el('start-workflow').disabled = false;
+    }
+  }
+};
+el('cancel-workflow').onclick = async () => {
+  if (!currentRun) return;
+  try {
+    await request('/api/workflows/' + encodeURIComponent(currentRun) + '/cancel', {method: 'POST'});
+    pollWorkflow(currentRun, workflowRequest);
+  } catch (error) { status('workflow-status', error.message, true); }
 };
 loadHistory();
 </script>

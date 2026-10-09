@@ -64,7 +64,7 @@ flowchart LR
 
 职位名/公司各最多 200 字符，来源最多 100 字符（默认 paste），均不得为空白；JD 最多 30,000 字符且不得全为空白，保存时保留首尾空白和换行。可选 URL 最多 2,048 字符，仅接受带主机名的 HTTP(S) 地址，不接受凭据或空白/控制字符。历史按 ID 倒序，以 limit/offset 查询（默认每页 20，最多 100），详情展示原文与来源。现存缺少元数据的历史行仍可读取，不自动补造公司或职位。
 
-本阶段不提供职位编辑、删除、自动采集或重复录入幂等保证；重试保存前先查历史。匹配报告由 T4 实施；本页面当前可生成实时的逐项关键词报告，不创建持久报告快照或生成工作流。
+不提供职位编辑、删除、自动采集或重复录入幂等保证；重试保存前先查历史。匹配报告由 T4 实施，页面可生成实时的逐项关键词报告，不创建持久报告快照。T10 增加页面入口：解析后须先生成并核对匹配报告，才可启动草稿任务；启动本身不会投递。
 
 ### 逐项证据匹配契约（T4）
 
@@ -88,9 +88,9 @@ workflow 图状态包含解析、匹配、生成、校验、等待审批、批�
 
 批准请求绑定 run、draft revision 和内容哈希。一个业务事务写入批准决定、完整版本、主张引用和审计事件，以唯一约束防重复。事务提交后才能显示版本可用。
 
-T7 已实现批准记录与 checkpoint 分阶段提交。批准 API 在同一 run 的 PostgreSQL advisory lock 内串行化编辑和审批；请求必须匹配当前草稿修订。一个数据库事务锁定职位与被引用事实，并写入 `resume_versions`、`resume_claims`、`resume_version_facts`、`workflow_approvals` 和 `audit_events`。事实须仍启用、已确认且修订未变化；批准包包含职位快照、简历分区和引用事实快照，规范化 SHA-256 绑定完整数据包与草稿修订。
+T7 已实现批准记录与 checkpoint 分阶段提交。批准 API 在同一 run 的 PostgreSQL advisory lock 内串行化编辑和审批；请求必须匹配当前草稿修订。一个数据库事务锁定职位与被引用事实，并写入 `resume_versions`、`resume_claims`、`resume_version_facts`、`workflow_approvals` 和 `audit_events`。事实须仍启用、已确认且修订未变化；批准包包含职位快照、简历分区和引用事实快照，规范化 SHA-256 绑定完整数据包与草稿修订。T10 的新批准包版本为 2，同一事务还读取已确认的联系资料修订并冻结姓名、邮箱、电话、所在地和主页；缺失或草稿资料记为 `null`，不阻断批准。
 
-业务批准记录先提交，再推进 LangGraph checkpoint。同修订重试从 PostgreSQL 读取并返回同一版本；checkpoint 暂不可用时返回 HTTP 202 和 `APPROVAL_RECONCILIATION_PENDING`，审核页可手动重试。工作流摘要以数据库批准记录为准，不要求 checkpoint 可读。批准后的审核来源和 DOCX 标题使用冻结快照；没有 `job_snapshot` 的旧版本仍使用关联职位当前标题兼容导出。
+业务批准记录先提交，再推进 LangGraph checkpoint。同修订重试从 PostgreSQL 读取并返回同一版本；checkpoint 暂不可用时返回 HTTP 202 和 `APPROVAL_RECONCILIATION_PENDING`，审核页可手动重试。工作流摘要以数据库批准记录为准，不要求 checkpoint 可读。批准后的审核来源、DOCX 标题和新版本联系资料使用冻结快照；旧包版本 1 没有 `profile_snapshot` 时不读取当前联系资料补入导出，没有 `job_snapshot` 的旧版本仍使用关联职位当前标题兼容导出。
 
 恢复能力有明确边界：T8 单实例 worker 启动时收回遗留 `running` 任务，按 checkpoint 继续或从头执行；已批准记录先对账为完成，不能再冻结第二个版本。已批准但 checkpoint 未同步时，审核页仍提供单 run 手动重试；没有多实例租约或自动审批。
 

@@ -8,6 +8,20 @@ import json
 SECTION_ORDER = ("education", "skills", "experience")
 JOB_SNAPSHOT_FIELDS = ("id", "source", "url", "company", "title", "raw_text", "parsed")
 
+SCHEMA_VERSION = 2
+PROFILE_DATA_FIELDS = ("name", "email", "phone", "location", "website")
+
+
+def normalize_profile_snapshot(profile_snapshot: dict | None) -> dict | None:
+    """Reduce a confirmed profile row to the frozen revision and contact fields."""
+    if profile_snapshot is None:
+        return None
+    data = profile_snapshot["data"] or {}
+    return {
+        "revision": int(profile_snapshot["revision"]),
+        "data": {field: data.get(field, "") for field in PROFILE_DATA_FIELDS},
+    }
+
 
 def build_approval_package(
     *,
@@ -15,6 +29,7 @@ def build_approval_package(
     sections: dict,
     fact_snapshots: list[dict],
     draft_revision: int,
+    profile_snapshot: dict | None = None,
 ) -> dict:
     normalized_sections = {
         name: [
@@ -54,11 +69,12 @@ def build_approval_package(
         for fact_id in sorted(cited_ids)
     ]
     return {
-        "schema_version": 1,
+        "schema_version": SCHEMA_VERSION,
         "draft_revision": draft_revision,
         "job_snapshot": {field: job[field] for field in JOB_SNAPSHOT_FIELDS},
         "sections": normalized_sections,
         "facts": cited_snapshots,
+        "profile_snapshot": normalize_profile_snapshot(profile_snapshot),
     }
 
 

@@ -9,13 +9,29 @@ from __future__ import annotations
 from io import BytesIO
 
 from docx import Document
+from docx.shared import Cm, Pt
 
 from .schemas import ResumeSections
 
 
-def render_docx(job_title: str, sections: ResumeSections) -> bytes:
+def render_docx(job_title: str, sections: ResumeSections,
+                profile: dict | None = None) -> bytes:
     doc = Document()
-    doc.add_heading(f"应聘简历 - {job_title}", level=0)
+    page = doc.sections[0]
+    page.top_margin = page.bottom_margin = Cm(1.8)
+    page.left_margin = page.right_margin = Cm(2)
+    doc.styles["Normal"].font.size = Pt(10.5)
+    if profile:
+        doc.add_heading(profile["name"], level=0)
+        contact = [f"{label}：{profile[key]}" for key, label in (
+            ("email", "邮箱"), ("phone", "电话"),
+            ("location", "所在地"), ("website", "主页"),
+        ) if profile.get(key)]
+        if contact:
+            doc.add_paragraph("  ·  ".join(contact))
+        doc.add_paragraph(f"应聘岗位：{job_title}")
+    else:
+        doc.add_heading(f"应聘简历 - {job_title}", level=0)
 
     if sections.education:
         doc.add_heading("教育背景", level=1)

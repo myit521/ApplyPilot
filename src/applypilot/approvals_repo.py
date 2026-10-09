@@ -96,6 +96,16 @@ def _load_cited_fact_revisions(
     return rows
 
 
+def _confirmed_profile_snapshot(conn: psycopg.Connection) -> dict | None:
+    """Read and share-lock the singleton profile inside the approval transaction."""
+    row = conn.execute(
+        "SELECT revision, status, data FROM profile WHERE id=1 FOR SHARE",
+    ).fetchone()
+    if row is None or row["status"] != "confirmed":
+        return None
+    return {"revision": row["revision"], "data": row["data"]}
+
+
 def _insert_approved_version(
     conn: psycopg.Connection, job_id: int, content: dict,
 ) -> int:
@@ -179,6 +189,7 @@ def persist_approval(
             sections=sections,
             fact_snapshots=fact_snapshots,
             draft_revision=draft_revision,
+            profile_snapshot=_confirmed_profile_snapshot(conn),
         )
         content_sha256 = hash_approval_package(package)
         version_content = {key: value for key, value in package.items() if key != "facts"}

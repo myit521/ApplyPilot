@@ -873,18 +873,21 @@ def create_app(
 
     @app.get("/api/resume-versions/{version_id}/docx")
     def export_docx(version_id: int) -> Response:
-        conn = get_conn()
-        version = conn.execute(
-            "SELECT rv.content, j.title FROM resume_versions rv "
-            "JOIN jobs j ON j.id = rv.job_id WHERE rv.id = %s",
-            (version_id,),
-        ).fetchone()
+        with get_conn() as conn:
+            version = conn.execute(
+                "SELECT rv.content, j.title FROM resume_versions rv "
+                "JOIN jobs j ON j.id = rv.job_id "
+                "WHERE rv.id = %s AND rv.status = 'approved'",
+                (version_id,),
+            ).fetchone()
         if version is None:
             raise HTTPException(404, f"简历版本 {version_id} 不存在")
         saved = version["content"]
         job_title = (saved.get("job_snapshot") or {}).get("title") or version["title"] or "未命名职位"
         sections = ResumeSections.model_validate(saved["sections"])
-        data = render_docx(job_title, sections)
+        frozen_profile = saved.get("profile_snapshot")
+        data = render_docx(job_title, sections,
+                           profile=frozen_profile["data"] if frozen_profile else None)
         return Response(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -958,6 +961,7 @@ def create_app(
                 name: with_facts(sections.get(name, []))
                 for name in ("education", "skills", "experience")
             }
+            profile_row = conn.execute("SELECT status FROM profile WHERE id=1").fetchone()
             total = sum(len(v) for v in context.values())
             return TEMPLATES.TemplateResponse(
                 request, "review.html", {
@@ -968,6 +972,8 @@ def create_app(
                     "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
                     "resume_version_id": summary.get("resume_version_id"),
                     "approval_reconciliation_pending": summary.get("approval_reconciliation_pending", False),
+                    "profile_confirmed": bool(profile_row and profile_row["status"] == "confirmed"),
+                    "profile_in_version": bool(approval and approval["package"].get("profile_snapshot")),
                 }
             )
 

@@ -1,6 +1,6 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-09。T1 运行基线至 T9 人工投递记录已实现并通过各阶段测试，分别见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)。T10–T12 仍为**待开发、待验收**；下一项是 T10 页面与导出。现状见[审计](audit-2026-09-29.md)。
+更新：2026-10-09。T1 运行基线至 T10 页面与导出已按各阶段范围实现，记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)。T11–T12 仍为**待开发、待验收**；下一项是 T11 评测与回归。现状基线见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 
@@ -87,4 +87,4 @@ S0+S2 都做时，总投入约 **82–86 小时**（含 P0 缓冲），不包含
 
 交付可启动应用、脱敏演示数据、完整主流程页面、批准事务/幂等/恢复测试、10 JD 与 20 边界主张评测、实际打开检查的 DOCX、正常/违规/故障恢复演示，以及明确的已知问题。
 
-T1–T9 已完成，实际结果见上方各阶段执行记录。当前下一项为 **T10 页面与导出**；T9 的实现与限制见[执行记录](t9-execution.md)。
+T1–T10 已按阶段验收，实际结果及边界见上方执行记录。当前下一项为 **T11 评测与回归**：先冻结 10 份脱敏/合成 JD 与 20 条有标签边界主张，再以相同数据复现正常、违规和故障恢复流程；真实模型评测须单列版本、预算与结果，不能用替身测试代替。

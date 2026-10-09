@@ -23,10 +23,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
-from datetime import date
-from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError as PydanticValidationError
+from datetime import date, datetime
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, ValidationError as PydanticValidationError
 
-from . import approvals_repo, db, facts_repo, search, task_repo
+from . import application_repo, approvals_repo, db, facts_repo, search, task_repo
 from .matching import build_match_report
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -146,6 +147,68 @@ class DraftEditRequest(BaseModel):
     sections: ResumeTextEdits
 
 
+class ApplicationCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: StrictInt = Field(gt=0)
+    version_id: StrictInt = Field(gt=0)
+    channel: str
+    status: Literal["unknown", "submitted", "failed"]
+    occurred_at: datetime | None = None
+    result: str = ""
+
+    @field_validator("channel")
+    @classmethod
+    def validate_channel(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 100 or any(ord(char) < 32 for char in value):
+            raise ValueError("channel must be 1-100 printable characters")
+        return value
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) > 2000 or "\x00" in value:
+            raise ValueError("result must be at most 2000 characters and NUL-free")
+        return value
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("occurred_at must include a time zone")
+        return value
+
+
+class ApplicationUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: StrictInt = Field(gt=0)
+    status: Literal["unknown", "submitted", "failed"] | None = None
+    occurred_at: datetime | None = None
+    result: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("status cannot be null")
+        return value
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("result cannot be null; use an empty string to clear")
+        return ApplicationCreateRequest.validate_result(value)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: datetime | None) -> datetime | None:
+        return ApplicationCreateRequest.validate_occurred_at(value)
+
+
 def create_app(
     dsn: str | None = None,
     adapter=None,
@@ -212,7 +275,7 @@ def create_app(
     async def require_initialized_checkpoint(request: Request, call_next):
         path = request.url.path
         if checkpointer is None and (
-            path in ("/", "/jobs") or path.startswith(("/api/", "/review/"))
+            path in ("/", "/jobs", "/applications") or path.startswith(("/api/", "/review/"))
         ):
             return JSONResponse({"detail": "database_not_ready"}, status_code=503)
         return await call_next(request)
@@ -910,12 +973,72 @@ def create_app(
 
     # ---------- 投递记录 ----------
 
+    @app.get("/applications", response_class=HTMLResponse)
+    def applications_page(request: Request, version_id: int | None = Query(default=None, gt=0)) -> HTMLResponse:
+        with get_conn() as conn:
+            approved_versions = conn.execute(
+                "SELECT wa.version_id, rv.job_id, j.company, j.title "
+                "FROM workflow_approvals wa "
+                "JOIN resume_versions rv ON rv.id=wa.version_id "
+                "JOIN jobs j ON j.id=rv.job_id "
+                "ORDER BY wa.approved_at DESC LIMIT 100"
+            ).fetchall()
+        return TEMPLATES.TemplateResponse(request, "applications.html", {
+            "approved_versions": approved_versions, "selected_version_id": version_id,
+        })
+
     @app.get("/api/applications")
     def list_applications() -> list[dict]:
-        rows = get_conn().execute(
-            "SELECT * FROM applications ORDER BY created_at DESC LIMIT 100"
-        ).fetchall()
-        return [{k: str(v) for k, v in r.items()} for r in rows]
+        with get_conn() as conn:
+            return application_repo.list_applications(conn)
+
+    @app.get("/api/applications/{application_id}")
+    def get_application(application_id: int) -> dict:
+        with get_conn() as conn:
+            record = application_repo.get_application(conn, application_id)
+        if record is None:
+            raise HTTPException(404, "Application record not found")
+        return record
+
+    @app.post("/api/applications", status_code=201)
+    def create_application(req: ApplicationCreateRequest,
+                           idempotency_key: str = Header()) -> dict:
+        if (len(idempotency_key) > 128 or not idempotency_key.strip()
+                or any(ord(char) < 32 for char in idempotency_key)):
+            raise HTTPException(422, "Idempotency-Key must be 1-128 printable characters")
+        try:
+            with get_conn() as conn:
+                return application_repo.create_application(
+                    conn, job_id=req.job_id, version_id=req.version_id,
+                    channel=req.channel, status=req.status,
+                    occurred_at=req.occurred_at, result=req.result,
+                    idempotency_key=idempotency_key,
+                )
+        except application_repo.ApplicationConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.patch("/api/applications/{application_id}")
+    def update_application(application_id: int, req: ApplicationUpdateRequest) -> dict:
+        if not req.model_fields_set.intersection({"status", "occurred_at", "result"}):
+            raise HTTPException(422, "At least one result field is required")
+        try:
+            with get_conn() as conn:
+                current = application_repo.get_application(conn, application_id)
+                if current is None:
+                    raise application_repo.ApplicationNotFound(
+                        f"application {application_id} does not exist"
+                    )
+                return application_repo.update_application(
+                    conn, application_id, expected_revision=req.expected_revision,
+                    status=req.status if req.status is not None else current["status"],
+                    occurred_at=(req.occurred_at if "occurred_at" in req.model_fields_set
+                                 else current["occurred_at"]),
+                    result=req.result if req.result is not None else current["result"],
+                )
+        except application_repo.ApplicationNotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except application_repo.ApplicationConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     return app
 

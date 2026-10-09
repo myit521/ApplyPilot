@@ -43,7 +43,7 @@ docker exec $target pg_restore -U applypilot -d applypilot --no-owner --no-acl /
 
 ## CI、日志和发布边界
 
-`.github/workflows/ci.yml` 在 Windows/Python 3.13 安装 `requirements.lock`，运行 `pytest -m "not integration"`，不配置模型密钥。YAML 本地解析通过；本机同一选择集 **124 通过、106 未选中**，有 1 条 Testcontainers 导入路径弃用警告。GitHub 托管 CI 只有推送后才有运行证据，不能把本机结果当成远端 CI 通过。Docker/Testcontainers 集成测试仍须本机运行。
+`.github/workflows/ci.yml` 在 Windows/Python 3.13 安装 `requirements.lock`，运行 `pytest -m "not integration"`，不配置模型密钥。YAML 本地解析通过；本机同一选择集 **124 通过、106 未选中**，有 1 条 Testcontainers 导入路径弃用警告。后续推送 `b5b7e49` 后，[GitHub Actions 运行](https://github.com/myit521/ApplyPilot/actions/runs/37948178683) 显示 `offline-tests` 成功；Docker/Testcontainers 集成测试仍须本机运行。
 
 Worker 的 JSON 事件只记录 `task_id`/`run_id`、`job_id`、步骤、尝试和重试次数、耗时、状态和异常类型，不输出异常正文、连接串或简历/JD。四项日志脱敏与异常路径测试通过。`task_id` 当前等于 `run_id`；批准版本 ID 不在 worker 事件中，跨批准与导出的统一追踪仍是后续工作。日志测试覆盖故障与重试路径，不能替代所有模块的隐私审计。
 

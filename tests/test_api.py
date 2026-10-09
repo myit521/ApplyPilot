@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from testcontainers.postgres import PostgresContainer
 
-from applypilot import db, embeddings
+from applypilot import db, embeddings, task_repo
 from applypilot.api import create_app
 
 pytestmark = pytest.mark.integration
@@ -210,6 +210,7 @@ def test_full_api_flow(client: TestClient):
     assert resp.status_code == 200
     assert resp.json()["resume_version_id"] == version_id
     assert resp.json()["content_sha256"] == result["content_sha256"]
+    assert client.post(f"/api/workflows/{run_id}/cancel").status_code == 409
 
     # 11. 审核页面
     resp = client.get("/")
@@ -234,6 +235,121 @@ def test_workflow_idempotency(client: TestClient):
     )
     # 相同幂等键返回同一个运行，而不是新建
     assert resp2.json()["run_id"] == run_id
+
+
+def test_workflow_key_cannot_be_reused_for_another_job(client: TestClient):
+    jobs = [client.post("/api/jobs", json={
+        "title": "Java 后端", "company": "模拟公司", "raw_text": f"职位 {i}",
+    }).json()["id"] for i in range(2)]
+    key = f"t8-different-job-{uuid.uuid4().hex}"
+    first = client.post(
+        "/api/workflows", json={"job_id": jobs[0]}, headers={"Idempotency-Key": key}
+    )
+    assert first.status_code == 202
+    second = client.post(
+        "/api/workflows", json={"job_id": jobs[1]}, headers={"Idempotency-Key": key}
+    )
+    assert second.status_code == 409
+    with db.connect(client.database_dsn) as conn:
+        assert conn.execute(
+            "SELECT count(*) AS n FROM workflow_tasks WHERE idempotency_key=%s", (key,)
+        ).fetchone()["n"] == 1
+
+
+def test_duplicate_create_reports_persisted_retry_state(client: TestClient):
+    job_id = client.post("/api/jobs", json={
+        "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 retry status",
+    }).json()["id"]
+    key = f"t8-retry-{uuid.uuid4().hex}"
+    with db.connect(client.database_dsn) as conn:
+        run_id = task_repo.reserve_workflow_task(
+            conn, job_id=job_id, idempotency_key=key
+        )["run_id"]
+        conn.execute(
+            "UPDATE workflow_tasks SET status='retry_wait', "
+            "next_attempt_at=now() + interval '1 hour' WHERE run_id=%s",
+            (run_id,),
+        )
+    response = client.post(
+        "/api/workflows", json={"job_id": job_id}, headers={"Idempotency-Key": key}
+    )
+    assert response.status_code == 202
+    assert response.json()["run_id"] == run_id
+    assert response.json()["status"] == "RETRY_WAIT"
+    assert response.json()["task_status"] == "retry_wait"
+
+
+def test_queued_task_is_visible_and_can_be_cancelled(client: TestClient):
+    original_complete = client.adapter.complete
+    entered, release = Event(), Event()
+
+    def blocking_complete(system: str, user: str) -> str:
+        if "职位描述解析器" in system and "T8 blocking job" in user:
+            entered.set()
+            assert release.wait(15)
+        return original_complete(system, user)
+
+    client.adapter.complete = blocking_complete
+    try:
+        busy_job = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 blocking job",
+        }).json()["id"]
+        busy_run = client.post("/api/workflows", json={"job_id": busy_job}).json()["run_id"]
+        assert entered.wait(10)
+
+        queued_job = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 queued job",
+        }).json()["id"]
+        queued_run = client.post("/api/workflows", json={"job_id": queued_job}).json()["run_id"]
+        queued = client.get(f"/api/workflows/{queued_run}")
+        assert queued.status_code == 200
+        assert queued.json()["status"] == "QUEUED"
+        cancelled = client.post(f"/api/workflows/{queued_run}/cancel")
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "CANCELLED"
+        with db.connect(client.database_dsn) as conn:
+            assert conn.execute(
+                "SELECT status FROM workflow_tasks WHERE run_id=%s", (queued_run,)
+            ).fetchone()["status"] == "cancelled"
+    finally:
+        release.set()
+        client.adapter.complete = original_complete
+
+
+def test_cancel_during_model_call_stops_next_graph_step(client: TestClient):
+    original_complete = client.adapter.complete
+    entered, release = Event(), Event()
+
+    def blocking_complete(system: str, user: str) -> str:
+        if "职位描述解析器" in system and "T8 cancel running" in user:
+            entered.set()
+            assert release.wait(15)
+        return original_complete(system, user)
+
+    client.adapter.complete = blocking_complete
+    try:
+        job_id = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 cancel running",
+        }).json()["id"]
+        run_id = client.post("/api/workflows", json={"job_id": job_id}).json()["run_id"]
+        assert entered.wait(10)
+        requested = client.post(f"/api/workflows/{run_id}/cancel")
+        assert requested.status_code == 200
+        release.set()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            state = client.get(f"/api/workflows/{run_id}").json()
+            if state["status"] == "CANCELLED":
+                break
+            time.sleep(0.1)
+        assert state["status"] == "CANCELLED"
+        assert client.post(
+            f"/api/workflows/{run_id}/approve",
+            json={"approved": True, "expected_revision": 1},
+        ).status_code == 409
+    finally:
+        release.set()
+        client.adapter.complete = original_complete
 
 
 def test_unknown_resources_404(client: TestClient):

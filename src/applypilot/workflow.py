@@ -32,6 +32,10 @@ from .validation import validate_sections
 MAX_VALIDATION_RETRIES = 2
 
 
+class WorkflowCancelled(Exception):
+    """A task was cancelled before its next graph step could complete."""
+
+
 class WorkflowStatus(StrEnum):
     PARSING_JD = "PARSING_JD"
     RETRIEVING_FACTS = "RETRIEVING_FACTS"
@@ -67,21 +71,31 @@ def build_graph(
     adapter: ModelAdapter,
     retriever: FactRetriever,
     checkpointer: BaseCheckpointSaver | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> CompiledStateGraph:
     """构造工作流图。adapter 与 retriever 在部署时注入。"""
 
+    def check_cancelled() -> None:
+        if cancel_requested is not None and cancel_requested():
+            raise WorkflowCancelled()
+
     def node_parse_jd(state: WorkflowState) -> dict:
+        check_cancelled()
         try:
             requirements = parse_jd(state["jd_text"], adapter)
         except JDParseError as e:
             return {"status": WorkflowStatus.FAILED, "error": str(e)}
+        check_cancelled()
         return {"requirements": requirements, "status": WorkflowStatus.RETRIEVING_FACTS}
 
     def node_retrieve(state: WorkflowState) -> dict:
+        check_cancelled()
         facts = retriever(state["requirements"])
+        check_cancelled()
         return {"retrieved_facts": facts, "status": WorkflowStatus.GENERATING_RESUME}
 
     def node_generate(state: WorkflowState) -> dict:
+        check_cancelled()
         errors = state.get("validation_errors", [])
         feedback_items = [state.get("feedback", "").strip()]
         if errors:
@@ -94,6 +108,7 @@ def build_graph(
         resume = generate_resume(
             state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
         )
+        check_cancelled()
         return {
             "resume": resume,
             "previous_resume": state.get("resume"),
@@ -103,12 +118,14 @@ def build_graph(
         }
 
     def node_validate(state: WorkflowState) -> dict:
+        check_cancelled()
         resume = state["resume"]
         facts = state["retrieved_facts"]
         errors = validate_sections(resume, facts)
         if not errors:
             # 确定性规则通过后，模型复核语义越界（第 8.4 节后段）
             errors = semantic_check(resume.all_claims(), facts, adapter)
+        check_cancelled()
         if any(error.code == ErrorCode.SEMANTIC_REVIEW_UNAVAILABLE for error in errors):
             return {
                 "validation_errors": errors,

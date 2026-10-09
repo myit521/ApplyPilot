@@ -11,7 +11,7 @@ import os
 
 import httpx
 
-from .model_adapter import ModelError
+from .model_adapter import ModelError, RetryableModelError
 
 
 class DeepSeekAdapter:
@@ -45,9 +45,13 @@ class DeepSeekAdapter:
                 },
                 timeout=self.timeout,
             )
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            raise RetryableModelError("DeepSeek 请求暂时不可用") from e
         except httpx.HTTPError as e:
-            raise ModelError(f"DeepSeek 请求失败: {e}") from e
+            raise ModelError("DeepSeek 请求失败") from e
 
         if resp.status_code != 200:
-            raise ModelError(f"DeepSeek 返回 {resp.status_code}: {resp.text[:200]}")
+            if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                raise RetryableModelError(f"DeepSeek 返回 {resp.status_code}")
+            raise ModelError(f"DeepSeek 返回 {resp.status_code}")
         return resp.json()["choices"][0]["message"]["content"]

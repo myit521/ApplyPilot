@@ -47,7 +47,7 @@ def schema_ready(conn: psycopg.Connection) -> bool:
     tables = conn.execute(
         "SELECT bool_and(to_regclass(name) IS NOT NULL) AS ready "
         "FROM unnest(ARRAY['fact_revisions','profile','profile_revisions',"
-        "'workflow_approvals','resume_version_facts']) AS tables(name)"
+        "'workflow_approvals','resume_version_facts','workflow_tasks']) AS tables(name)"
     ).fetchone()
     if not tables["ready"]:
         return False
@@ -55,8 +55,12 @@ def schema_ready(conn: psycopg.Connection) -> bool:
         "SELECT 1 FROM schema_migrations WHERE version='002_fact_confirmation.sql'"
     ).fetchone():
         return False
-    return bool(conn.execute(
+    if not conn.execute(
         "SELECT 1 FROM schema_migrations WHERE version='003_atomic_approval_snapshot.sql'"
+    ).fetchone():
+        return False
+    return bool(conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='004_workflow_tasks.sql'"
     ).fetchone())
 
 

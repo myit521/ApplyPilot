@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-import threading
 import uuid
 import unicodedata
 from pathlib import Path
@@ -27,7 +26,7 @@ from langgraph.types import Command
 from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError as PydanticValidationError
 
-from . import approvals_repo, db, facts_repo, search
+from . import approvals_repo, db, facts_repo, search, task_repo
 from .matching import build_match_report
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -36,8 +35,9 @@ from .docx_export import render_docx
 from .fact_import import FactImportError, extract_facts
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelError
+from .task_worker import TaskWorker
 from .schemas import Fact, FactType, EvidenceType, ProfileData, JobRequirements, ResumeSections
-from .workflow import WorkflowStatus, build_graph
+from .workflow import WorkflowCancelled, WorkflowStatus, build_graph
 
 
 class FactImportRequest(BaseModel):
@@ -152,9 +152,6 @@ def create_app(
     checkpointer=None,
 ) -> FastAPI:
     dsn = dsn or db.default_dsn()
-    # 工作流线程的异常登记表：run_id -> 错误信息
-    run_errors: dict[str, str] = {}
-
     def get_conn():
         return db.connect(dsn)
 
@@ -194,8 +191,16 @@ def create_app(
                     if owned_connection is not None:
                         owned_connection.close()
                         owned_connection = None
+            if checkpointer is not None and not injected:
+                try:
+                    with get_conn() as conn:
+                        if db.schema_ready(conn):
+                            worker.start()
+                except psycopg.Error:
+                    pass
             yield
         finally:
+            worker.stop()
             if owned_connection is not None:
                 owned_connection.close()
             if not injected:
@@ -255,6 +260,59 @@ def create_app(
 
             _embedding_provider = LocalEmbeddingProvider()
         return _embedding_provider
+
+    def _execute_task(task: dict) -> str:
+        run_id = task["run_id"]
+        config = {"configurable": {"thread_id": run_id}}
+
+        with get_conn() as conn:
+            if approvals_repo.get_approval(conn, run_id) is not None:
+                return "completed"
+
+        def cancelled() -> bool:
+            if worker.stopping:
+                return True
+            with get_conn() as conn:
+                row = task_repo.get_task(conn, run_id)
+                return row is None or row["cancel_requested"]
+
+        if cancelled():
+            raise WorkflowCancelled()
+        with get_conn() as conn:
+            job = conn.execute(
+                "SELECT raw_text FROM jobs WHERE id=%s", (task["job_id"],)
+            ).fetchone()
+            if job is None:
+                return "failed"
+            retriever = search.PostgresFactRetriever(
+                conn, embedding_provider=get_embeddings()
+            )
+            graph = build_graph(
+                get_adapter(), retriever, checkpointer=get_checkpointer(),
+                cancel_requested=cancelled,
+            )
+            state = graph.get_state(config)
+            if not state.values:
+                graph.invoke(
+                    {"jd_text": job["raw_text"], "job_id": task["job_id"],
+                     "validation_retries": 0},
+                    config,
+                )
+            elif state.next and state.next[0] != "approval":
+                graph.invoke(None, config)
+            state = graph.get_state(config)
+
+        if cancelled():
+            raise WorkflowCancelled()
+        if state.values.get("status") == WorkflowStatus.FAILED:
+            return "failed"
+        if state.values.get("status") == WorkflowStatus.READY_TO_APPLY:
+            return "completed"
+        if state.next and state.next[0] == "approval":
+            return "waiting_approval"
+        raise RuntimeError("Workflow ended without a terminal or approval state")
+
+    worker = TaskWorker(dsn, _execute_task)
 
     # ---------- 事实库 ----------
 
@@ -482,6 +540,11 @@ def create_app(
             "WHERE id=%s",
             ("approval_reconciliation" if pending else "", status, approval["run_id"]),
         )
+        conn.execute(
+            "UPDATE workflow_tasks SET status='completed', error='', updated_at=now() "
+            "WHERE run_id=%s AND status NOT IN ('completed','cancelled')",
+            (approval["run_id"],),
+        )
 
     def _summarize_state(run_id: str) -> dict:
         with get_conn() as conn:
@@ -490,11 +553,33 @@ def create_app(
                 if approval is not None:
                     _sync_approval_run_status(conn, approval)
                     return _approval_summary(approval)
+                task = task_repo.get_task(conn, run_id)
+
+        def task_only_summary() -> dict:
+            return {
+                "run_id": run_id,
+                "status": task["status"].upper(),
+                "task_status": task["status"],
+                "waiting": False,
+                "validation_retries": 0,
+                "draft_revision": 0,
+                "error": task["error"],
+                "sections": None,
+                "previous_sections": None,
+                "validation_errors": [],
+            }
+
+        if task is not None and task["status"] in (
+            "queued", "running", "retry_wait", "failed", "cancelled"
+        ):
+            return task_only_summary()
 
         graph = get_graph()
         config = {"configurable": {"thread_id": run_id}}
         state = graph.get_state(config)
         if not state.values:
+            if task is not None:
+                return task_only_summary()
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         values: dict[str, Any] = state.values
         resume = values.get("resume")
@@ -505,13 +590,18 @@ def create_app(
             "waiting": bool(state.next),
             "validation_retries": values.get("validation_retries", 0),
             "draft_revision": values.get("draft_revision", 1 if resume else 0),
-            "error": values.get("error") or run_errors.get(run_id, ""),
+            "error": (task["error"] if task is not None and task["error"]
+                      else values.get("error", "")),
             "sections": resume.model_dump(mode="json") if resume else None,
             "previous_sections": previous_resume.model_dump(mode="json") if previous_resume else None,
             "validation_errors": [
                 e.model_dump(mode="json") for e in values.get("validation_errors", [])
             ],
         }
+        if task is not None:
+            summary["task_status"] = task["status"]
+            if task["status"] in ("queued", "running", "retry_wait", "failed"):
+                summary["status"] = task["status"].upper()
         with get_conn() as conn:
             with approvals_repo.workflow_lock(conn, run_id):
                 approval = approvals_repo.get_approval(conn, run_id)
@@ -534,48 +624,49 @@ def create_app(
                 )
         return summary
 
-    def _run_workflow(run_id: str, jd_text: str, job_id: int) -> None:
-        try:
-            graph = get_graph()
-            config = {"configurable": {"thread_id": run_id}}
-            graph.invoke(
-                {"jd_text": jd_text, "job_id": job_id, "validation_retries": 0},
-                config,
-            )
-        except Exception as e:  # 线程内异常登记，GET 时可见
-            run_errors[run_id] = str(e)
-
     @app.post("/api/workflows", status_code=202)
     def create_workflow(
         req: WorkflowCreateRequest,
         idempotency_key: str | None = Header(default=None),
     ) -> dict:
-        conn = get_conn()
-        row = conn.execute("SELECT raw_text FROM jobs WHERE id = %s", (req.job_id,)).fetchone()
-        if row is None:
-            raise HTTPException(404, f"职位 {req.job_id} 不存在")
-
-        run_id = f"wf_{idempotency_key}" if idempotency_key else f"wf_{uuid.uuid4().hex[:12]}"
         if idempotency_key:
-            existing = conn.execute(
-                "SELECT id FROM workflow_runs WHERE id = %s", (run_id,)
-            ).fetchone()
-            if existing:
-                return _summarize_state(run_id)
+            if (len(idempotency_key) > 128 or not idempotency_key.strip()
+                    or any(ord(c) < 32 for c in idempotency_key)):
+                raise HTTPException(422, "Idempotency-Key must be 1-128 printable characters")
+        try:
+            with get_conn() as conn:
+                reservation = task_repo.reserve_workflow_task(
+                    conn, job_id=req.job_id, idempotency_key=idempotency_key
+                )
+        except task_repo.WorkflowJobNotFound as exc:
+            raise HTTPException(404, f"职位 {req.job_id} 不存在") from exc
+        except task_repo.WorkflowTaskConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
-        thread = threading.Thread(
-            target=_run_workflow, args=(run_id, row["raw_text"], req.job_id), daemon=True
-        )
-        thread.start()
-        conn.execute(
-            "INSERT INTO workflow_runs (id, current_node, status, input_summary) "
-            "VALUES (%s, 'parse_jd', %s, %s) ON CONFLICT (id) DO NOTHING",
-            (run_id, WorkflowStatus.PARSING_JD, row["raw_text"][:200]),
-        )
-        return {"run_id": run_id, "status": WorkflowStatus.PARSING_JD}
+        worker.start()
+        worker.wake()
+        if reservation["created"]:
+            return {"run_id": reservation["run_id"], "status": "QUEUED",
+                    "task_status": "queued"}
+        return _summarize_state(reservation["run_id"])
 
     @app.get("/api/workflows/{run_id}")
     def get_workflow(run_id: str) -> dict:
+        return _summarize_state(run_id)
+
+    @app.post("/api/workflows/{run_id}/cancel")
+    def cancel_workflow(run_id: str) -> dict:
+        with get_conn() as conn:
+            with approvals_repo.workflow_lock(conn, run_id):
+                task = task_repo.get_task(conn, run_id)
+                if task is None:
+                    raise HTTPException(404, f"工作流 {run_id} 不存在")
+                if approvals_repo.get_approval(conn, run_id) is not None:
+                    raise HTTPException(409, "已批准的简历版本不能取消")
+                if task["status"] in ("completed", "failed"):
+                    raise HTTPException(409, "任务已结束，不能取消")
+                task_repo.request_cancel(conn, run_id)
+        worker.wake()
         return _summarize_state(run_id)
 
     def _pending_approval_response(conn, approval: dict) -> JSONResponse:
@@ -637,6 +728,10 @@ def create_app(
                         return _pending_approval_response(conn, approval)
                     return _reconcile_approval(graph, conn, config, approval)
 
+                task = task_repo.get_task(conn, run_id)
+                if task is not None and task["cancel_requested"]:
+                    raise HTTPException(409, "该工作流已取消")
+
                 graph = get_graph()
                 state = graph.get_state(config)
                 if not state.values:
@@ -679,6 +774,9 @@ def create_app(
             with approvals_repo.workflow_lock(conn, run_id):
                 if approvals_repo.get_approval(conn, run_id) is not None:
                     raise HTTPException(409, "该工作流已批准，不能再编辑")
+                task = task_repo.get_task(conn, run_id)
+                if task is not None and task["cancel_requested"]:
+                    raise HTTPException(409, "该工作流已取消")
                 graph = get_graph()
                 state = graph.get_state(config)
                 if not state.values:
@@ -736,7 +834,12 @@ def create_app(
     def index(request: Request) -> HTMLResponse:
         conn = get_conn()
         runs = conn.execute(
-            "SELECT id, status, retry_count, updated_at FROM workflow_runs "
+            "SELECT wr.id, CASE WHEN a.run_id IS NOT NULL THEN wr.status "
+            "WHEN t.run_id IS NOT NULL THEN upper(t.status) ELSE wr.status END AS status, "
+            "wr.retry_count, GREATEST(wr.updated_at, COALESCE(t.updated_at, wr.updated_at)) "
+            "AS updated_at FROM workflow_runs wr "
+            "LEFT JOIN workflow_tasks t ON t.run_id=wr.id "
+            "LEFT JOIN workflow_approvals a ON a.run_id=wr.id "
             "ORDER BY updated_at DESC LIMIT 50"
         ).fetchall()
         jobs = conn.execute(

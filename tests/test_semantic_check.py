@@ -6,6 +6,7 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 
 from applypilot.schemas import Fact, FactType, ResumeClaim
+from applypilot.model_adapter import RetryableModelError
 from applypilot.semantic_check import semantic_check
 from applypilot.workflow import WorkflowStatus, build_graph
 from tests.test_workflow import (
@@ -74,6 +75,15 @@ def test_review_timeout_blocks_as_unavailable():
     errors = semantic_check([OVERRUN_CLAIM], FACTS, TimeoutAdapter())
     assert len(errors) == 1
     assert errors[0].code == "SEMANTIC_REVIEW_UNAVAILABLE"
+
+
+def test_transient_model_failure_reaches_task_retry():
+    class TransientAdapter:
+        def complete(self, system: str, user: str) -> str:
+            raise RetryableModelError("temporary")
+
+    with pytest.raises(RetryableModelError):
+        semantic_check([OVERRUN_CLAIM], FACTS, TransientAdapter())
 
 
 def test_workflow_retries_on_semantic_overrun():

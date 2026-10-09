@@ -1,6 +1,6 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-08。T1 运行基线至 T7 原子批准与快照已实现并验证，分别见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)。T8–T12 仍为**待开发、待验收**；下一项是 T8 持久化任务与重启恢复。现状见[审计](audit-2026-09-29.md)。
+更新：2026-10-09。T1 运行基线至 T8 持久化任务已实现并通过各阶段测试，分别见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)。T9–T12 仍为**待开发、待验收**；下一项是 T9 人工投递记录。现状见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 
@@ -87,4 +87,4 @@ S0+S2 都做时，总投入约 **82–86 小时**（含 P0 缓冲），不包含
 
 交付可启动应用、脱敏演示数据、完整主流程页面、批准事务/幂等/恢复测试、10 JD 与 20 边界主张评测、实际打开检查的 DOCX、正常/违规/故障恢复演示，以及明确的已知问题。
 
-已完成的第一项 **T1**：移除 API 模块导入阶段的数据库连接，明确启动生命周期，补直接依赖并建立不依赖 Docker 的单元测试入口。新进程在无数据库配置时仅导入模块应成功且不联网；应用启动而数据库不可用时应明确报告未就绪。随后跑纯单元和临时数据库集成测试，保存基线。T1 实际执行结果见 [执行记录](t1-execution.md)，T2 执行结果见 [执行记录](t2-execution.md)；下一项为 T3，不要据此自动推进其他任务。
+T1–T8 已完成，实际结果见上方各阶段执行记录。当前下一项为 **T9 人工投递记录**。T8 的实施边界和验收拆分见 [设计](superpowers/specs/2026-10-09-t8-persistent-workflow-tasks-design.md)、[计划](superpowers/plans/2026-10-09-t8-persistent-workflow-tasks.md)与[执行记录](t8-execution.md)。

@@ -84,7 +84,7 @@ flowchart LR
 
 ## 5. 审批与任务一致性
 
-当前 workflow 枚举包含解析、匹配、生成、校验、等待审批、批准完成、失败，以及 `APPROVAL_RECONCILIATION_PENDING`。持久化任务的排队、取消、重试和启动恢复仍属于 T8，不应从目标状态推断为已实现。
+workflow 图状态包含解析、匹配、生成、校验、等待审批、批准完成、失败，以及 `APPROVAL_RECONCILIATION_PENDING`。T8 另以 `workflow_tasks` 保存 `queued`、`running`、`retry_wait`、`waiting_approval`、`completed`、`failed`、`cancelled`；任务尝试次数与图中的事实校验重试次数分开。
 
 批准请求绑定 run、draft revision 和内容哈希。一个业务事务写入批准决定、完整版本、主张引用和审计事件，以唯一约束防重复。事务提交后才能显示版本可用。
 
@@ -92,11 +92,11 @@ T7 已实现批准记录与 checkpoint 分阶段提交。批准 API 在同一 ru
 
 业务批准记录先提交，再推进 LangGraph checkpoint。同修订重试从 PostgreSQL 读取并返回同一版本；checkpoint 暂不可用时返回 HTTP 202 和 `APPROVAL_RECONCILIATION_PENDING`，审核页可手动重试。工作流摘要以数据库批准记录为准，不要求 checkpoint 可读。批准后的审核来源和 DOCX 标题使用冻结快照；没有 `job_snapshot` 的旧版本仍使用关联职位当前标题兼容导出。
 
-恢复能力有明确边界：用户可通过审核页重试单个待对账 run；当前没有进程启动时的 pending 扫描、自动 worker 或多实例恢复保证。T8 需补齐持久化任务、启动恢复和受控重试后才能扩大这一承诺。
+恢复能力有明确边界：T8 单实例 worker 启动时收回遗留 `running` 任务，按 checkpoint 继续或从头执行；已批准记录先对账为完成，不能再冻结第二个版本。已批准但 checkpoint 未同步时，审核页仍提供单 run 手动重试；没有多实例租约或自动审批。
 
-创建任务原子占用幂等键并保存请求摘要。相同键同请求返回原任务，不同请求返回冲突。worker 持久化错误和尝试次数，启动时检查中断任务；外部模型调用可能重复产生费用，不承诺 exactly-once。
+创建任务在同一事务写 `workflow_runs` 与 `workflow_tasks`，先占用幂等键再唤醒 worker。相同键同职位在任何任务状态返回原 run，异职位冲突；无键每次新建。旧 `wf_<key>` 记录缺少职位归属时拒绝复用。worker 持久化脱敏错误和尝试次数；外部模型调用在崩溃恢复后可能重复产生费用，不承诺 exactly-once。
 
-取消后，即使已发出的模型调用返回，也不得继续推进任务。临时错误有上限退避，输入错误、事实不足和授权失效转人工处理。
+取消在排队/重试/待审批时立即生效；运行中先标记，模型调用返回后检查并阻止后续图节点。超时、连接失败、429 和 5xx 有上限退避；其他模型错误及事实校验失败持久化为失败，需用户处理。已批准版本不能取消。
 
 ## 6. 投递与安全边界
 

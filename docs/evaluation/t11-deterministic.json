@@ -1,0 +1,545 @@
+{
+  "dataset": {
+    "jd_cases": 10,
+    "claim_cases": 20
+  },
+  "matching": {
+    "cases": [
+      {
+        "id": "jd01",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "Java 和 Spring Boot",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-java"
+            ],
+            "observed_fact_ids": [
+              "fx-java"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "responsibility",
+            "text": "负责业务接口开发",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd02",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "MySQL 和 Redis",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-sql",
+              "fx-cache"
+            ],
+            "observed_fact_ids": [
+              "fx-cache",
+              "fx-sql"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "required",
+            "text": "能分析慢查询",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          },
+          {
+            "category": "preferred",
+            "text": "了解 Kafka",
+            "expected_status": "no_evidence",
+            "observed_status": "no_evidence",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd03",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "Docker 和 Kubernetes",
+            "expected_status": "no_evidence",
+            "observed_status": "no_evidence",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          },
+          {
+            "category": "responsibility",
+            "text": "参与容器部署",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd04",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "Java 开发经验及 JUnit 单元测试",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-java",
+              "fx-test"
+            ],
+            "observed_fact_ids": [
+              "fx-java",
+              "fx-test"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "required",
+            "text": "熟悉接口评审",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [
+              "fx-java",
+              "fx-team"
+            ],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd05",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "使用 Python 和 FastAPI 开发 API",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-ai"
+            ],
+            "observed_fact_ids": [
+              "fx-ai"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "responsibility",
+            "text": "参与企业知识库问答",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd06",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "LangGraph 和 Python 原型开发",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-ai"
+            ],
+            "observed_fact_ids": [
+              "fx-ai"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "preferred",
+            "text": "生产级监控经验",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd07",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "Java 和 Kafka",
+            "expected_status": "partial",
+            "observed_status": "partial",
+            "gold_fact_ids": [
+              "fx-java"
+            ],
+            "observed_fact_ids": [
+              "fx-java"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "preferred",
+            "text": "Spring Cloud",
+            "expected_status": "no_evidence",
+            "observed_status": "no_evidence",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd08",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "MySQL 与 PostgreSQL 调优",
+            "expected_status": "partial",
+            "observed_status": "partial",
+            "gold_fact_ids": [
+              "fx-sql"
+            ],
+            "observed_fact_ids": [
+              "fx-sql"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "required",
+            "text": "SQL 基础",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-sql"
+            ],
+            "observed_fact_ids": [
+              "fx-sql"
+            ],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd09",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "2027 届本科",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          },
+          {
+            "category": "responsibility",
+            "text": "参加跨团队联调",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [
+              "fx-team"
+            ],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      },
+      {
+        "id": "jd10",
+        "requirements": [
+          {
+            "category": "required",
+            "text": "Spring Boot 与 Redis 开发",
+            "expected_status": "supported",
+            "observed_status": "supported",
+            "gold_fact_ids": [
+              "fx-java",
+              "fx-cache"
+            ],
+            "observed_fact_ids": [
+              "fx-cache",
+              "fx-java"
+            ],
+            "status_correct": true
+          },
+          {
+            "category": "preferred",
+            "text": "使用 Docker",
+            "expected_status": "no_evidence",
+            "observed_status": "no_evidence",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          },
+          {
+            "category": "responsibility",
+            "text": "交付线上高可用服务",
+            "expected_status": "unknown",
+            "observed_status": "unknown",
+            "gold_fact_ids": [],
+            "observed_fact_ids": [],
+            "status_correct": true
+          }
+        ]
+      }
+    ],
+    "status_accuracy": {
+      "numerator": 22,
+      "denominator": 22,
+      "value": 1.0
+    },
+    "evidence_recall": {
+      "numerator": 12,
+      "denominator": 15,
+      "value": 0.8
+    },
+    "evidence_precision": {
+      "numerator": 12,
+      "denominator": 12,
+      "value": 1.0
+    }
+  },
+  "claims": {
+    "cases": [
+      {
+        "id": "cl01",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl02",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl03",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl04",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl05",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl06",
+        "label": "supported",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl07",
+        "label": "overclaim",
+        "expected_error_codes": [
+          "UNSUPPORTED_NUMBER"
+        ],
+        "observed_error_codes": [
+          "UNSUPPORTED_NUMBER"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl08",
+        "label": "overclaim",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl09",
+        "label": "overclaim",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl10",
+        "label": "overclaim",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl11",
+        "label": "overclaim",
+        "expected_error_codes": [
+          "UNSUPPORTED_NUMBER"
+        ],
+        "observed_error_codes": [
+          "UNSUPPORTED_NUMBER"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl12",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "UNSUPPORTED_SKILL"
+        ],
+        "observed_error_codes": [
+          "UNSUPPORTED_SKILL"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl13",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "UNSUPPORTED_SKILL"
+        ],
+        "observed_error_codes": [
+          "UNSUPPORTED_SKILL"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl14",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "MISSING_CITATION"
+        ],
+        "observed_error_codes": [
+          "MISSING_CITATION"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl15",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "UNKNOWN_FACT"
+        ],
+        "observed_error_codes": [
+          "UNKNOWN_FACT"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl16",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "FACT_UNCONFIRMED"
+        ],
+        "observed_error_codes": [
+          "FACT_UNCONFIRMED"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl17",
+        "label": "unsupported",
+        "expected_error_codes": [
+          "FACT_DISABLED"
+        ],
+        "observed_error_codes": [
+          "FACT_DISABLED"
+        ],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl18",
+        "label": "uncertain",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl19",
+        "label": "uncertain",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      },
+      {
+        "id": "cl20",
+        "label": "uncertain",
+        "expected_error_codes": [],
+        "observed_error_codes": [],
+        "rule_code_match": true
+      }
+    ],
+    "rule_detectable_violation_recall": {
+      "numerator": 8,
+      "denominator": 8,
+      "value": 1.0
+    },
+    "expected_code_recall": {
+      "numerator": 8,
+      "denominator": 8,
+      "value": 1.0
+    },
+    "supported_false_blocks": {
+      "numerator": 0,
+      "denominator": 6,
+      "value": 0.0
+    },
+    "semantic_overclaim_cases": [
+      "cl08",
+      "cl09",
+      "cl10"
+    ],
+    "manual_review_cases": [
+      "cl08",
+      "cl09",
+      "cl10",
+      "cl18",
+      "cl19",
+      "cl20"
+    ]
+  },
+  "limits": [
+    "parsed JD is supplied as gold input; JD parser quality is not measured",
+    "keyword evidence does not prove semantic support",
+    "deterministic claim rules do not measure semantic-review quality",
+    "workflow recovery and real model calls are excluded from these scores"
+  ],
+  "run": {
+    "mode": "deterministic_no_model",
+    "model_id": null,
+    "model_calls": 0,
+    "prompt_version": null,
+    "parameters": {},
+    "cost": null,
+    "generated_at_utc": "2026-10-09T14:22:24.505982+00:00",
+    "commit": "ae12fd93c5163a661dd8404dd778394cb4fafc38",
+    "working_tree_dirty": false,
+    "fixtures_sha256": {
+      "jds": "9f03ec53bc16b12e7d289af30e58ad44ec4bbf0563a1e8b5368f9ca7acdc444e",
+      "claims": "a7bac992768865b962103fa068a428baa2a397edaa742af99835156ee6dbae80"
+    }
+  }
+}

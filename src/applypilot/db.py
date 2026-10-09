@@ -59,8 +59,12 @@ def schema_ready(conn: psycopg.Connection) -> bool:
         "SELECT 1 FROM schema_migrations WHERE version='003_atomic_approval_snapshot.sql'"
     ).fetchone():
         return False
-    return bool(conn.execute(
+    if not conn.execute(
         "SELECT 1 FROM schema_migrations WHERE version='004_workflow_tasks.sql'"
+    ).fetchone():
+        return False
+    return bool(conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='005_manual_applications.sql'"
     ).fetchone())
 
 

@@ -33,12 +33,14 @@
   <h2>已批准、待恢复对账</h2>
   <p>简历版本已冻结。工作流状态尚未同步，可稍后重试。</p>
   <a href="/api/resume-versions/{{ resume_version_id }}/docx">下载冻结版本 DOCX</a>
+  <a href="/applications?version_id={{ resume_version_id }}">自行投递后记录结果</a>
   <button id="retry-reconciliation">重试状态同步</button>
 </section>
 {% elif resume_version_id %}
 <section id="approval-complete" class="approval-state">
   <h2>已批准，版本已冻结</h2>
   <a href="/api/resume-versions/{{ resume_version_id }}/docx">下载冻结版本 DOCX</a>
+  <a href="/applications?version_id={{ resume_version_id }}">自行投递后记录结果</a>
 </section>
 {% endif %}
 

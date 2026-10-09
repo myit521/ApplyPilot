@@ -1,6 +1,6 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-09。T1–T12 已按各自范围实现并留下本地验证记录；记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)。T11 的真实模型评测、T12 的托管 CI 运行与历史隐私清查仍未完成。现状基线见[审计](audit-2026-09-29.md)。
+更新：2026-10-09。T1–T13 已按各自范围实现并留下本地验证记录；记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)、[T13](t13-execution.md)。T11 的真实模型评测与历史隐私清查仍未完成。现状基线见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 
@@ -87,4 +87,4 @@ S0+S2 都做时，总投入约 **82–86 小时**（含 P0 缓冲），不包含
 
 交付可启动应用、脱敏演示数据、完整主流程页面、批准事务/幂等/恢复测试、10 JD 与 20 边界主张评测、实际打开检查的 DOCX、正常/违规/故障恢复演示，以及明确的已知问题。
 
-T1–T12 的本地阶段交付已完成；T11 的 10 份 JD、20 条主张与离线规则评测，以及 T12 的本机容器启动、恢复演练和离线 CI 配置均有记录。真实模型质量、检索 Recall@5、完整浏览器彩排和 GitHub 托管 CI 结果仍无证据，不能用替身测试代替。下一步优先做一次合成数据的真实页面彩排，收集可解释的失败与耗时，再决定是否投入可选浏览器辅助填写。
+T1–T12 的本地阶段交付已完成；T11 的 10 份 JD、20 条主张与离线规则评测、T12 的本机容器和恢复演练，以及 T13 的[合成数据浏览器彩排](t13-execution.md)均有记录。T12 提交 `b5b7e49` 的 [GitHub 离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/37948178683) 已成功。真实模型质量、检索 Recall@5、真实招聘网站兼容性仍无证据，不能用替身测试代替。下一步应以明确预算验证真实模型少量样本，并在公开分发前核查历史 DOCX 隐私与许可证；可选浏览器辅助填写仍待独立需求和规则评估。

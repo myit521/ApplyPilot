@@ -31,6 +31,8 @@ def test_run_records_all_fixed_cases_with_one_call_each(monkeypatch, tmp_path):
     assert len(calls) == 19
     assert [cap for _, cap in calls] == [1000] * 10 + [300] * 9
     assert len(report["cases"]) == 19
+    assert report["run"]["status"] == "complete"
+    assert report["run"]["attempted_requests"] == 19
     assert [row["id"] for row in report["cases"][10:]] == [
         "cl01", "cl02", "cl03", "cl04", "cl05", "cl06", "cl08", "cl09", "cl10",
     ]
@@ -45,3 +47,16 @@ def test_existing_report_refuses_new_paid_calls(monkeypatch, tmp_path):
 
     with pytest.raises(FileExistsError):
         evaluation.run("test-key", output)
+
+
+def test_transport_error_keeps_partial_report_and_marks_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(evaluation, "request_once", lambda *args, **kwargs:
+                        {"http_status": 429, "error": "http_error"})
+    output = tmp_path / "partial.json"
+
+    report = evaluation.run("test-key", output)
+
+    assert report["run"]["status"] == "partial"
+    assert report["run"]["attempted_requests"] == 1
+    assert report["cases"][0]["error"] == "http_error"
+    assert json.loads(output.read_text(encoding="utf-8")) == report

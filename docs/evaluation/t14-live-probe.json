@@ -1,0 +1,93 @@
+{
+  "run": {
+    "at_utc": "2026-10-10T02:28:46.281412+00:00",
+    "source_commit": "40540554fd2e36b13ee075071c8ddbae9acc0f2b",
+    "model_requested": "deepseek-chat",
+    "temperature": 0.2,
+    "requests": 2,
+    "retries": 0,
+    "synthetic_only": true
+  },
+  "fixtures_sha256": {
+    "t11_jds": "9f03ec53bc16b12e7d289af30e58ad44ec4bbf0563a1e8b5368f9ca7acdc444e",
+    "t11_claims": "a7bac992768865b962103fa068a428baa2a397edaa742af99835156ee6dbae80"
+  },
+  "cases": [
+    {
+      "id": "jd01",
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 138,
+        "total_tokens": 399,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 261
+      },
+      "observed": {
+        "job_title": "Java 后端开发",
+        "job_category": "后端开发",
+        "location": "上海",
+        "required": [
+          "Java",
+          "Spring Boot"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责业务接口开发"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "cl08",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 190,
+        "completion_tokens": 43,
+        "total_tokens": 233,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 190
+      },
+      "observed_error_codes": [
+        "SEMANTIC_OVERRUN"
+      ],
+      "observed_reasons": [
+        "事实仅为参与接口评审，未负责架构设计，表述将参与评审夸大为独立设计架构。"
+      ]
+    }
+  ],
+  "limits": [
+    "Two selected synthetic examples are not a quality or recall estimate.",
+    "No production candidate information or recruitment site was sent.",
+    "Raw model response and credentials are not stored in this report."
+  ]
+}

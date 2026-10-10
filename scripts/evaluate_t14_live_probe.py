@@ -44,14 +44,30 @@ def request_once(api_key: str, system: str, user: str, *, max_tokens: int) -> di
     try:
         payload = response.json()
         choice = payload["choices"][0]
+        finish_reason = choice.get("finish_reason")
+        if finish_reason != "stop":
+            return {"http_status": 200, "finish_reason": finish_reason,
+                    "error": "incomplete_completion"}
+        content = choice["message"]["content"]
+        if not isinstance(content, str) or len(content) > 8192:
+            return {"http_status": 200, "finish_reason": finish_reason,
+                    "error": "oversized_completion"}
+        model = payload.get("model")
+        usage = payload.get("usage")
+        if (not isinstance(model, str) or len(model) > 100
+                or not isinstance(usage, dict)
+                or any(not isinstance(usage.get(key), int) or usage[key] < 0
+                       for key in ("prompt_tokens", "completion_tokens", "total_tokens"))):
+            return {"http_status": 200, "error": "invalid_response_envelope"}
         return {
             "http_status": 200,
-            "model": payload.get("model"),
-            "finish_reason": choice.get("finish_reason"),
-            "usage": payload.get("usage"),
-            "content": choice["message"]["content"],
+            "model": model,
+            "finish_reason": finish_reason,
+            "usage": {key: usage[key] for key in
+                      ("prompt_tokens", "completion_tokens", "total_tokens")},
+            "content": content,
         }
-    except (ValueError, KeyError, IndexError, TypeError):
+    except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         return {"http_status": 200, "error": "invalid_response_envelope"}
 
 

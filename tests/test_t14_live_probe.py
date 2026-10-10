@@ -47,3 +47,29 @@ def test_request_once_does_not_retry_and_does_not_copy_error_body(monkeypatch):
 
     assert len(calls) == 1
     assert result == {"http_status": 429, "error": "http_error"}
+
+
+def test_request_once_rejects_truncated_or_oversized_success(monkeypatch):
+    class Response:
+        status_code = 200
+
+        def __init__(self, finish_reason, content):
+            self.finish_reason = finish_reason
+            self.content = content
+
+        def json(self):
+            return {"model": "deepseek-chat", "usage": {}, "choices": [{
+                "finish_reason": self.finish_reason, "message": {"content": self.content},
+            }]}
+
+    responses = iter([Response("length", "{}"), Response("stop", "x" * 8193)])
+    monkeypatch.setattr("scripts.evaluate_t14_live_probe.httpx.post",
+                        lambda *args, **kwargs: next(responses))
+
+    truncated = request_once("key", "system", "user", max_tokens=300)
+    oversized = request_once("key", "system", "user", max_tokens=300)
+
+    assert truncated == {"http_status": 200, "finish_reason": "length",
+                         "error": "incomplete_completion"}
+    assert oversized == {"http_status": 200, "finish_reason": "stop",
+                         "error": "oversized_completion"}

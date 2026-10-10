@@ -44,7 +44,8 @@ def run(api_key: str, output: Path) -> dict:
     report = {
         "run": {"at_utc": datetime.now(timezone.utc).isoformat(), "source_commit": commit,
                 "model_requested": "deepseek-chat", "temperature": 0.2,
-                "planned_requests": 19, "retries": 0, "synthetic_only": True},
+                "planned_requests": 19, "attempted_requests": 0, "status": "running",
+                "retries": 0, "synthetic_only": True},
         "fixtures_sha256": {"t11_jds": hashlib.sha256(jd_bytes).hexdigest(),
                             "t11_claims": hashlib.sha256(claim_bytes).hexdigest()},
         "cases": [],
@@ -71,6 +72,9 @@ def run(api_key: str, output: Path) -> dict:
             except Exception as exc:
                 row["error"] = type(exc).__name__
         report["cases"].append(row)
+        report["run"]["attempted_requests"] += 1
+        if "error" in response:
+            report["run"]["status"] = "partial"
         _save(output, report)
         print(f"{case['id']}: {row.get('error', 'parsed')}", flush=True)
         if "error" in response:
@@ -96,10 +100,15 @@ def run(api_key: str, output: Path) -> dict:
             row["observed_error_codes"] = [error.code.value for error in errors]
             row["observed_reasons"] = [error.detail for error in errors]
         report["cases"].append(row)
+        report["run"]["attempted_requests"] += 1
+        if "error" in response:
+            report["run"]["status"] = "partial"
         _save(output, report)
         print(f"{case['id']}: {row.get('error', row.get('observed_error_codes'))}", flush=True)
         if "error" in response:
             return report
+    report["run"]["status"] = "complete"
+    _save(output, report)
     return report
 
 
@@ -112,6 +121,8 @@ def main() -> None:
         raise SystemExit("DEEPSEEK_API_KEY is required")
     report = run(api_key, args.output)
     print(f"Recorded {len(report['cases'])}/19 cases in {args.output}")
+    if report["run"]["status"] != "complete":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

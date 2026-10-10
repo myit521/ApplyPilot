@@ -1,0 +1,901 @@
+{
+  "run": {
+    "at_utc": "2026-10-10T02:38:42.821604+00:00",
+    "source_commit": "46c06fa43b245c925b9c95f143cf236c2b58146c",
+    "model_requested": "deepseek-chat",
+    "temperature": 0.2,
+    "planned_requests": 19,
+    "attempted_requests": 19,
+    "status": "complete",
+    "retries": 0,
+    "synthetic_only": true
+  },
+  "fixtures_sha256": {
+    "t11_jds": "9f03ec53bc16b12e7d289af30e58ad44ec4bbf0563a1e8b5368f9ca7acdc444e",
+    "t11_claims": "a7bac992768865b962103fa068a428baa2a397edaa742af99835156ee6dbae80"
+  },
+  "cases": [
+    {
+      "id": "jd01",
+      "kind": "jd_parse",
+      "jd_text": "Java 后端开发（上海）：必备 Java、Spring Boot，负责业务接口开发。",
+      "gold": {
+        "job_title": "Java 后端开发",
+        "location": "上海",
+        "required": [
+          "Java 和 Spring Boot"
+        ],
+        "responsibilities": [
+          "负责业务接口开发"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 153,
+        "total_tokens": 414
+      },
+      "observed": {
+        "job_title": "Java 后端开发",
+        "job_category": "后端开发",
+        "location": "上海",
+        "required": [
+          "Java",
+          "Spring Boot"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责业务接口开发"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          },
+          {
+            "term": "业务接口开发",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "jd02",
+      "kind": "jd_parse",
+      "jd_text": "交易后端（北京）：必备 MySQL 与 Redis，能分析慢查询；Kafka 为加分项。",
+      "gold": {
+        "job_title": "交易后端",
+        "location": "北京",
+        "required": [
+          "MySQL 和 Redis",
+          "能分析慢查询"
+        ],
+        "preferred": [
+          "了解 Kafka"
+        ],
+        "keywords": [
+          {
+            "term": "MySQL",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "required"
+          },
+          {
+            "term": "Kafka",
+            "importance": "preferred"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 266,
+        "completion_tokens": 193,
+        "total_tokens": 459
+      },
+      "observed": {
+        "job_title": "交易后端",
+        "job_category": "后端开发",
+        "location": "北京",
+        "required": [
+          "必备 MySQL 与 Redis",
+          "能分析慢查询"
+        ],
+        "preferred": [
+          "Kafka 为加分项"
+        ],
+        "responsibilities": [],
+        "keywords": [
+          {
+            "term": "MySQL",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "required"
+          },
+          {
+            "term": "慢查询分析",
+            "importance": "required"
+          },
+          {
+            "term": "Kafka",
+            "importance": "preferred"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求",
+          "岗位职责"
+        ]
+      }
+    },
+    {
+      "id": "jd03",
+      "kind": "jd_parse",
+      "jd_text": "云原生后端（深圳）：必备 Docker 和 Kubernetes，参与容器部署。",
+      "gold": {
+        "job_title": "云原生后端",
+        "location": "深圳",
+        "required": [
+          "Docker 和 Kubernetes"
+        ],
+        "responsibilities": [
+          "参与容器部署"
+        ],
+        "keywords": [
+          {
+            "term": "Docker",
+            "importance": "required"
+          },
+          {
+            "term": "Kubernetes",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 259,
+        "completion_tokens": 138,
+        "total_tokens": 397
+      },
+      "observed": {
+        "job_title": "云原生后端",
+        "job_category": "后端开发",
+        "location": "深圳",
+        "required": [
+          "Docker",
+          "Kubernetes"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参与容器部署"
+        ],
+        "keywords": [
+          {
+            "term": "Docker",
+            "importance": "required"
+          },
+          {
+            "term": "Kubernetes",
+            "importance": "required"
+          },
+          {
+            "term": "容器部署",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "jd04",
+      "kind": "jd_parse",
+      "jd_text": "Java 质量工程方向：必备 Java 开发经验及 JUnit 单元测试；熟悉接口评审。",
+      "gold": {
+        "job_title": "Java 质量工程方向",
+        "required": [
+          "Java 开发经验及 JUnit 单元测试",
+          "熟悉接口评审"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "JUnit",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 265,
+        "completion_tokens": 122,
+        "total_tokens": 387
+      },
+      "observed": {
+        "job_title": "Java 质量工程方向",
+        "job_category": "质量工程",
+        "location": "",
+        "required": [
+          "Java 开发经验",
+          "JUnit 单元测试",
+          "熟悉接口评审"
+        ],
+        "preferred": [],
+        "responsibilities": [],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "JUnit",
+            "importance": "required"
+          },
+          {
+            "term": "接口评审",
+            "importance": "required"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "Java 开发经验",
+        "unknowns": [
+          "工作地点",
+          "岗位职责",
+          "学历要求",
+          "毕业时间要求"
+        ]
+      }
+    },
+    {
+      "id": "jd05",
+      "kind": "jd_parse",
+      "jd_text": "AI 应用后端（杭州）：必备 Python、FastAPI；参与企业知识库问答。",
+      "gold": {
+        "job_title": "AI 应用后端",
+        "location": "杭州",
+        "required": [
+          "使用 Python 和 FastAPI 开发 API"
+        ],
+        "responsibilities": [
+          "参与企业知识库问答"
+        ],
+        "keywords": [
+          {
+            "term": "Python",
+            "importance": "required"
+          },
+          {
+            "term": "FastAPI",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 262,
+        "completion_tokens": 187,
+        "total_tokens": 449
+      },
+      "observed": {
+        "job_title": "AI 应用后端",
+        "job_category": "后端开发",
+        "location": "杭州",
+        "required": [
+          "Python",
+          "FastAPI"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参与企业知识库问答"
+        ],
+        "keywords": [
+          {
+            "term": "Python",
+            "importance": "required"
+          },
+          {
+            "term": "FastAPI",
+            "importance": "required"
+          },
+          {
+            "term": "企业知识库问答",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求",
+          "薪资待遇",
+          "团队规模",
+          "具体技术栈细节"
+        ]
+      }
+    },
+    {
+      "id": "jd06",
+      "kind": "jd_parse",
+      "jd_text": "Agent 原型开发：必备 LangGraph 与 Python；熟悉生产级监控加分。",
+      "gold": {
+        "job_title": "Agent 原型开发",
+        "required": [
+          "LangGraph 和 Python 原型开发"
+        ],
+        "preferred": [
+          "生产级监控经验"
+        ],
+        "keywords": [
+          {
+            "term": "LangGraph",
+            "importance": "required"
+          },
+          {
+            "term": "Python",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 180,
+        "total_tokens": 441
+      },
+      "observed": {
+        "job_title": "Agent 原型开发",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "必备 LangGraph 与 Python"
+        ],
+        "preferred": [
+          "熟悉生产级监控加分"
+        ],
+        "responsibilities": [],
+        "keywords": [
+          {
+            "term": "LangGraph",
+            "importance": "required"
+          },
+          {
+            "term": "Python",
+            "importance": "required"
+          },
+          {
+            "term": "生产级监控",
+            "importance": "preferred"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "岗位职责",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "jd07",
+      "kind": "jd_parse",
+      "jd_text": "分布式后端：必备 Java、Kafka；Spring Cloud 加分。",
+      "gold": {
+        "job_title": "分布式后端",
+        "required": [
+          "Java 和 Kafka"
+        ],
+        "preferred": [
+          "Spring Cloud"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Kafka",
+            "importance": "required"
+          },
+          {
+            "term": "Spring Cloud",
+            "importance": "preferred"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 257,
+        "completion_tokens": 115,
+        "total_tokens": 372
+      },
+      "observed": {
+        "job_title": "分布式后端",
+        "job_category": "后端开发",
+        "location": "",
+        "required": [
+          "Java",
+          "Kafka"
+        ],
+        "preferred": [
+          "Spring Cloud"
+        ],
+        "responsibilities": [],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Kafka",
+            "importance": "required"
+          },
+          {
+            "term": "Spring Cloud",
+            "importance": "preferred"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "工作地点",
+          "岗位职责",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "jd08",
+      "kind": "jd_parse",
+      "jd_text": "数据库开发（远程）：必备 MySQL 调优与 PostgreSQL；需要 SQL 基础。",
+      "gold": {
+        "job_title": "数据库开发",
+        "location": "远程",
+        "required": [
+          "MySQL 与 PostgreSQL 调优",
+          "SQL 基础"
+        ],
+        "keywords": [
+          {
+            "term": "MySQL",
+            "importance": "required"
+          },
+          {
+            "term": "PostgreSQL",
+            "importance": "required"
+          },
+          {
+            "term": "SQL",
+            "importance": "required"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 188,
+        "total_tokens": 449
+      },
+      "observed": {
+        "job_title": "数据库开发",
+        "job_category": "技术",
+        "location": "远程",
+        "required": [
+          "MySQL 调优",
+          "PostgreSQL",
+          "SQL 基础"
+        ],
+        "preferred": [],
+        "responsibilities": [],
+        "keywords": [
+          {
+            "term": "MySQL",
+            "importance": "required"
+          },
+          {
+            "term": "PostgreSQL",
+            "importance": "required"
+          },
+          {
+            "term": "SQL",
+            "importance": "required"
+          },
+          {
+            "term": "数据库调优",
+            "importance": "required"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求",
+          "岗位职责",
+          "加分条件"
+        ]
+      }
+    },
+    {
+      "id": "jd09",
+      "kind": "jd_parse",
+      "jd_text": "校招生后端：2027 届本科，参加跨团队联调；毕业时间和到岗日期请另议。",
+      "gold": {
+        "job_title": "校招生后端",
+        "required": [
+          "2027 届本科"
+        ],
+        "responsibilities": [
+          "参加跨团队联调"
+        ],
+        "education_requirement": "本科",
+        "graduation_time_requirement": "2027 届",
+        "unknowns": [
+          "具体毕业日期未说明",
+          "具体到岗日期未说明"
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 268,
+        "completion_tokens": 119,
+        "total_tokens": 387
+      },
+      "observed": {
+        "job_title": "校招生后端",
+        "job_category": "后端开发",
+        "location": "",
+        "required": [
+          "2027 届本科"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参加跨团队联调"
+        ],
+        "keywords": [
+          {
+            "term": "后端",
+            "importance": "required"
+          },
+          {
+            "term": "跨团队联调",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "本科",
+        "graduation_time_requirement": "2027 届",
+        "experience_requirement": "",
+        "unknowns": [
+          "工作地点",
+          "到岗日期",
+          "毕业时间具体日期",
+          "具体技术栈",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "jd10",
+      "kind": "jd_parse",
+      "jd_text": "后端综合岗：必备 Spring Boot 与 Redis；Docker 为加分项；负责交付线上高可用服务。",
+      "gold": {
+        "job_title": "后端综合岗",
+        "required": [
+          "Spring Boot 与 Redis 开发"
+        ],
+        "preferred": [
+          "使用 Docker"
+        ],
+        "responsibilities": [
+          "交付线上高可用服务"
+        ],
+        "keywords": [
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "required"
+          },
+          {
+            "term": "Docker",
+            "importance": "preferred"
+          }
+        ]
+      },
+      "max_output_tokens": 1000,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 268,
+        "completion_tokens": 174,
+        "total_tokens": 442
+      },
+      "observed": {
+        "job_title": "后端综合岗",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "Spring Boot",
+          "Redis"
+        ],
+        "preferred": [
+          "Docker"
+        ],
+        "responsibilities": [
+          "负责交付线上高可用服务"
+        ],
+        "keywords": [
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "required"
+          },
+          {
+            "term": "Docker",
+            "importance": "preferred"
+          },
+          {
+            "term": "高可用",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      }
+    },
+    {
+      "id": "cl01",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 209,
+        "completion_tokens": 6,
+        "total_tokens": 215
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl02",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 206,
+        "completion_tokens": 6,
+        "total_tokens": 212
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl03",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 205,
+        "completion_tokens": 6,
+        "total_tokens": 211
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl04",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 193,
+        "completion_tokens": 6,
+        "total_tokens": 199
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl05",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 234,
+        "completion_tokens": 6,
+        "total_tokens": 240
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl06",
+      "kind": "semantic_review",
+      "gold_label": "supported",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 191,
+        "completion_tokens": 6,
+        "total_tokens": 197
+      },
+      "observed_error_codes": [],
+      "observed_reasons": []
+    },
+    {
+      "id": "cl08",
+      "kind": "semantic_review",
+      "gold_label": "overclaim",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 190,
+        "completion_tokens": 43,
+        "total_tokens": 233
+      },
+      "observed_error_codes": [
+        "SEMANTIC_OVERRUN"
+      ],
+      "observed_reasons": [
+        "事实仅为参与接口评审，未负责架构设计，表述将参与评审夸大为独立设计架构。"
+      ]
+    },
+    {
+      "id": "cl09",
+      "kind": "semantic_review",
+      "gold_label": "overclaim",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 197,
+        "completion_tokens": 62,
+        "total_tokens": 259
+      },
+      "observed_error_codes": [
+        "SEMANTIC_OVERRUN"
+      ],
+      "observed_reasons": [
+        "事实原文明确说明仅在本地运行文档问答原型，尚未部署生产，表述却声称已部署到生产环境并稳定运行，属于把未完成的功能写成已完成。"
+      ]
+    },
+    {
+      "id": "cl10",
+      "kind": "semantic_review",
+      "gold_label": "overclaim",
+      "max_output_tokens": 300,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 195,
+        "completion_tokens": 50,
+        "total_tokens": 245
+      },
+      "observed_error_codes": [
+        "SEMANTIC_OVERRUN"
+      ],
+      "observed_reasons": [
+        "事实为与同事共同讨论缓存方案且未担任方案负责人，表述将共同讨论改写为主导设计，夸大了个人角色。"
+      ]
+    }
+  ],
+  "limits": [
+    "Synthetic selected cases cannot estimate real recruitment performance.",
+    "JD wording differences need human review, not exact-string accuracy.",
+    "Only six supported and three semantic overclaim claims enter this model-only probe.",
+    "Deterministic-only and uncertain claims are excluded from semantic binary metrics.",
+    "Each response is recorded before the next call; existing reports cannot be overwritten."
+  ]
+}

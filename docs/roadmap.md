@@ -1,6 +1,6 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-10。T1–T13 已按各自范围实现并留下本地验证记录；T14 的[限额探针](t14-execution.md)和 T15 的[合成集真实模型评测](t15-execution.md)另有记录。此前记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)、[T13](t13-execution.md)。有统计意义的真实岗位模型质量评测与历史隐私处理仍未完成。现状基线见[审计](audit-2026-09-29.md)。
+更新：2026-10-11。T1–T13 已按各自范围实现并留下本地验证记录；T14 的[限额探针](t14-execution.md)、T15 的[合成集真实模型评测](t15-execution.md)和 T16 的[具名技术子集核对](t16-execution.md)另有记录。此前记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)、[T13](t13-execution.md)。有统计意义的真实岗位模型质量评测仍未完成；公开分支历史中的 5 份简历 DOCX 已移除并核验，但 GitHub 旧对象缓存不能仅靠推送证明清除。现状基线见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 
@@ -87,4 +87,4 @@ S0+S2 都做时，总投入约 **82–86 小时**（含 P0 缓冲），不包含
 
 交付可启动应用、脱敏演示数据、完整主流程页面、批准事务/幂等/恢复测试、10 JD 与 20 边界主张评测、实际打开检查的 DOCX、正常/违规/故障恢复演示，以及明确的已知问题。
 
-T1–T12 的本地阶段交付已完成；T11 的 10 份 JD、20 条主张与离线规则评测、T12 的本机容器和恢复演练，以及 T13 的[合成数据浏览器彩排](t13-execution.md)均有记录。T12 提交 `b5b7e49` 的 [GitHub 离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/37948178683) 已成功。T14 的[两例探针](t14-execution.md)及 T15 的[10 JD/9 主张评测](t15-execution.md)验证了选定合成样例的真实模型行为；JD 关键词边界和金标口径仍需修订，检索 Recall@5、真实招聘网站兼容性仍无证据。下一步先固定人工逐项映射规则、扩充更有代表性的样本，再按预算评估；公开分发前还需处理历史 DOCX 隐私与许可证，可选浏览器辅助填写仍待独立需求和规则评估。
+T1–T12 的本地阶段交付已完成；T11 的 10 份 JD、20 条主张与离线规则评测、T12 的本机容器和恢复演练，以及 T13 的[合成数据浏览器彩排](t13-execution.md)均有记录。T12 的 [GitHub 离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/37948178683) 已成功。T14 的[两例探针](t14-execution.md)及 T15 的[10 JD/9 主张评测](t15-execution.md)验证了选定合成样例的真实模型行为；T16 只冻结并核对[具名技术子集](t16-execution.md)。完整 JD 金标口径、检索 Recall@5、真实招聘网站兼容性仍无证据。下一步固定完整的人工逐项映射规则、扩充更有代表性的样本，再按预算评估；公开分发前还需处理许可证，GitHub 旧对象缓存的清理状态不能由分支检查证明。可选浏览器辅助填写仍待独立需求和规则评估。

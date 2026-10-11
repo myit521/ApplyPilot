@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "source_fixture_sha256": "9f03ec53bc16b12e7d289af30e58ad44ec4bbf0563a1e8b5368f9ca7acdc444e",
+  "source_report_sha256": "4941a3d919ec7558fca9e281bc2fe202f1b48568e8e1712205c488c02517e044",
+  "cases": [
+    {"id": "jd01", "terms": [{"term": "Java", "importance": "required", "source_span": "Java、Spring Boot"}, {"term": "Spring Boot", "importance": "required", "source_span": "Spring Boot"}]},
+    {"id": "jd02", "terms": [{"term": "MySQL", "importance": "required", "source_span": "MySQL 与 Redis"}, {"term": "Redis", "importance": "required", "source_span": "Redis"}, {"term": "Kafka", "importance": "preferred", "source_span": "Kafka 为加分项"}]},
+    {"id": "jd03", "terms": [{"term": "Docker", "importance": "required", "source_span": "Docker 和 Kubernetes"}, {"term": "Kubernetes", "importance": "required", "source_span": "Kubernetes"}]},
+    {"id": "jd04", "terms": [{"term": "Java", "importance": "required", "source_span": "Java 开发经验"}, {"term": "JUnit", "importance": "required", "source_span": "JUnit 单元测试"}]},
+    {"id": "jd05", "terms": [{"term": "Python", "importance": "required", "source_span": "Python、FastAPI"}, {"term": "FastAPI", "importance": "required", "source_span": "FastAPI"}]},
+    {"id": "jd06", "terms": [{"term": "LangGraph", "importance": "required", "source_span": "LangGraph 与 Python"}, {"term": "Python", "importance": "required", "source_span": "Python"}]},
+    {"id": "jd07", "terms": [{"term": "Java", "importance": "required", "source_span": "Java、Kafka"}, {"term": "Kafka", "importance": "required", "source_span": "Kafka"}, {"term": "Spring Cloud", "importance": "preferred", "source_span": "Spring Cloud 加分"}]},
+    {"id": "jd08", "terms": [{"term": "MySQL", "importance": "required", "source_span": "MySQL 调优"}, {"term": "PostgreSQL", "importance": "required", "source_span": "PostgreSQL"}, {"term": "SQL", "importance": "required", "source_span": "SQL 基础"}]},
+    {"id": "jd09", "terms": []},
+    {"id": "jd10", "terms": [{"term": "Spring Boot", "importance": "required", "source_span": "Spring Boot 与 Redis"}, {"term": "Redis", "importance": "required", "source_span": "Redis"}, {"term": "Docker", "importance": "preferred", "source_span": "Docker 为加分项"}]}
+  ]
+}

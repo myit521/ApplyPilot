@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from .jd_polarity import is_explicit_non_requirement
 from .schemas import Fact, JobRequirements
 
 
@@ -129,6 +130,10 @@ def build_match_report(requirements: JobRequirements, facts: list[Fact]) -> dict
     keywords = list(dict.fromkeys(keyword.term.strip() for keyword in requirements.keywords if keyword.term.strip()))
     entries: list[dict] = []
     covered_terms: set[str] = set()
+    unknowns = [
+        {"text": text, "status": "unknown", "reason": "职位描述解析器无法确定此项"}
+        for text in requirements.unknowns
+    ]
 
     clauses = (
         ("required", requirements.required),
@@ -139,16 +144,25 @@ def build_match_report(requirements: JobRequirements, facts: list[Fact]) -> dict
         for text in texts:
             terms = _requirement_terms(text, keywords)
             covered_terms.update(terms)
+            if category in ("required", "preferred") and is_explicit_non_requirement(text):
+                unknowns.append({"text": text, "status": "unknown",
+                                 "reason": "解析结果与非要求或可选措辞冲突；已阻止匹配，请重新解析或人工核对"})
+                continue
             entries.append(_assess(category, text, terms, active_facts,
                                    any_of=_is_one_of_clause(text, terms)))
 
+    mentioned_only = {keyword.term.strip() for keyword in requirements.keywords
+                      if keyword.importance == "mentioned"} - {
+        keyword.term.strip() for keyword in requirements.keywords
+        if keyword.importance != "mentioned"
+    }
     for term in keywords:
         if term in covered_terms:
             continue
+        if term in mentioned_only:
+            unknowns.append({"text": term, "status": "unknown",
+                             "reason": "仅被提及，未列为必备或加分；不作为匹配要求"})
+            continue
         entries.append(_assess("keyword", term, [term], active_facts))
 
-    unknowns = [
-        {"text": text, "status": "unknown", "reason": "职位描述解析器无法确定此项"}
-        for text in requirements.unknowns
-    ]
     return {"requirements": entries, "unknowns": unknowns}

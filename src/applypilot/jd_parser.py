@@ -4,8 +4,8 @@
 错误处理对应第 10 节：模型输出解析失败时保留原始输出摘要，
 使用结构修复提示重试一次，仍失败则抛出 JDParseError。
 
-模型不得把"加分项"提升为"硬性要求"，该约束写在系统提示词中，
-并由 required/preferred 分离的 Schema 在结构上兜底。
+系统提示词要求区分必备、加分与非要求；Schema 分离字段，
+明确的非要求误归类再由解析边界触发一次修复。
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import re
 from pydantic import ValidationError
 
 from .model_adapter import ModelAdapter, ModelError
+from .jd_polarity import is_explicit_non_requirement
 from .schemas import JobRequirements
 
 _SYSTEM_PROMPT = """你是职位描述解析器。将用户给出的招聘 JD 原文解析为 JSON，结构如下：
@@ -36,9 +37,10 @@ _SYSTEM_PROMPT = """你是职位描述解析器。将用户给出的招聘 JD �
 - 只输出 JSON，不要输出任何解释。
 - required 只收录原文明确表述为必备/必须的条件；加分项、优先条件必须放入 preferred，禁止提升为必备。
 - 原文没有的信息留空字符串或放入 unknowns，禁止编造。
+- “不限制”“不要求”“无需”“非必需”“可选”等非要求，不得写入 required、preferred 或经验要求；其中的技术词只能标为 mentioned。
 """
 
-_REPAIR_PROMPT = """你上一次的输出不是合法 JSON 或不符合要求的结构。请根据下面的校验错误修正，只输出修正后的 JSON。
+_REPAIR_PROMPT = """你上一次的输出不是合法 JSON 或不符合要求。请根据下面的校验错误修正，只输出修正后的 JSON。
 
 校验错误：
 {error}
@@ -76,6 +78,23 @@ def _parse_output(text: str) -> JobRequirements:
         raise JDParseError(f"输出结构不合法: {e}", _summarize(text)) from e
 
 
+def _parse_checked(text: str, jd_text: str) -> JobRequirements:
+    parsed = _parse_output(text)
+    clauses = parsed.required + parsed.preferred + [parsed.experience_requirement]
+    if any(is_explicit_non_requirement(clause) for clause in clauses):
+        raise JDParseError("非要求或可选项不能列为必备、加分或经验要求", _summarize(text))
+    negative_segments = [segment for segment in re.split(r"[；。，,:：]", jd_text)
+                         if is_explicit_non_requirement(segment)]
+    for keyword in parsed.keywords:
+        if keyword.importance == "mentioned" or not keyword.term.strip():
+            continue
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(keyword.term.strip())}(?![A-Za-z0-9])"
+        if any(re.search(pattern, segment, flags=re.IGNORECASE)
+               for segment in negative_segments):
+            raise JDParseError("非要求中的技术词不能标为必备或加分", _summarize(text))
+    return parsed
+
+
 def parse_jd(jd_text: str, adapter: ModelAdapter) -> JobRequirements:
     """解析 JD 原文。模型输出不合法时用修复提示重试一次。"""
     try:
@@ -84,13 +103,13 @@ def parse_jd(jd_text: str, adapter: ModelAdapter) -> JobRequirements:
         raise
 
     try:
-        return _parse_output(output)
+        return _parse_checked(output, jd_text)
     except JDParseError as first_error:
         repair_user = _REPAIR_PROMPT.format(
             error=str(first_error), output=first_error.raw_output_summary
         )
         repaired = adapter.complete(_SYSTEM_PROMPT, repair_user)
         try:
-            return _parse_output(repaired)
-        except JDParseError:
-            raise first_error from None
+            return _parse_checked(repaired, jd_text)
+        except JDParseError as second_error:
+            raise second_error from None

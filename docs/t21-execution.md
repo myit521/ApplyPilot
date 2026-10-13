@@ -8,6 +8,8 @@ T18 的模型输出同时包含岗位要求、职责词和只在背景中提及�
 
 DSH 只读复审发现职责中的否定括注仍可能被召回；已用“负责消息链路（不需要 RabbitMQ）”反例复现并修复。当前会排除整条含明确非要求措辞的职责，代价是其中的正向职责信息也暂不进入查询；后续如有真实需求再做更细的分句处理。
 
-2026-10-13 离线全套回归 `python -m pytest -p no:cacheprovider -q -m "not integration" --tb=short`：183 passed、107 deselected、1 warning。默认全量运行因 Docker Linux Engine 不可用得到 183 passed、8 failed、99 errors；容器错误发生在 Testcontainers 初始化。启动已有 Docker Desktop 后引擎仍未就绪，本轮不能宣称容器集成测试通过。
+2026-10-13 离线全套回归 `python -m pytest -p no:cacheprovider -q -m "not integration" --tb=short`：183 passed、107 deselected、1 warning。首次默认全量运行因 Docker Linux Engine 不可用得到 183 passed、8 failed、99 errors；容器错误发生在 Testcontainers 初始化。
+
+随后确认 Docker Engine 29.7.2 可用，在代码提交 `8c884e6` 上补跑 `python -m pytest -p no:cacheprovider -q --tb=short`：**290 passed、3 warnings，耗时 125.82 秒**。包含此前未验证的 107 项容器集成测试，以及合成数据浏览器彩排。警告为 Testcontainers 与 WebSockets 的依赖弃用提示；测试启动时另有 Requests 依赖版本提示。
 
 这只验证词项选择规则。候选排序的实际 Recall@5、真实职位分布与向量模型效果仍未测量；复杂正反混合条件仍需要人工复核。

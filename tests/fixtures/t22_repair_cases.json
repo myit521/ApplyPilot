@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "origin": "Selected synthetic T18 regressions and two synthetic positive controls; fixed before T22 calls.",
+  "cases": [
+    {"id":"n-h07","mode":"natural","source_id":"h07","must_required":["PostgreSQL"],"not_promoted":["MySQL"]},
+    {"id":"n-h08","mode":"natural","source_id":"h08","must_required":["Kafka","Redis"],"not_promoted":["RabbitMQ"]},
+    {"id":"n-h12","mode":"natural","source_id":"h12","not_promoted":["不限制实习经历"],"must_fields":{"job_title":"校招后端","location":"武汉","education_requirement":"本科","graduation_time_requirement":"2027"}},
+    {"id":"n-h18","mode":"natural","source_id":"h18","must_required":["Spring Boot"],"not_promoted":["Redis"]},
+    {"id":"n-h19","mode":"natural","source_id":"h19","must_required":["Python"],"not_promoted":["LangGraph"]},
+    {"id":"n-h20","mode":"natural","source_id":"h20","must_required":["Java"],"not_promoted":["GraphQL"]},
+    {"id":"c-parameters","mode":"natural","jd_text":"接口平台开发：必须熟悉接口可选参数的设计；负责接口兼容性维护。","must_required":["可选参数"],"must_fields":{"job_title":"接口平台开发"}},
+    {"id":"c-comma","mode":"natural","jd_text":"合成后端（南京）：Java 必备，不要求 Redis；负责服务接口开发。","must_required":["Java"],"not_promoted":["Redis"],"must_fields":{"job_title":"合成后端","location":"南京"}},
+    {"id":"s-h12","mode":"seeded_repair","source_id":"h12","not_promoted":["不限制实习经历"],"must_fields":{"job_title":"校招后端","location":"武汉","education_requirement":"本科","graduation_time_requirement":"2027"}},
+    {"id":"s-h20","mode":"seeded_repair","source_id":"h20","must_required":["Java"],"not_promoted":["GraphQL"],"must_fields":{"job_title":"移动服务后端"}}
+  ]
+}

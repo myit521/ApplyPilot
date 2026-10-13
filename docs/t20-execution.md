@@ -6,6 +6,6 @@ T18 的合成 JD 暴露两类错误：h12 的“不限制实习经历”进入 `
 
 匹配报告对已有解析数据另设保护：明显含非要求/可选措辞的 `required` 或 `preferred` 条目不参与证据匹配，列入待核对项；仅标为 `mentioned` 且未被其他条件引用的关键词也不生成“支持/无证据”的要求卡片。这避免把 h12、h20 及四例非要求技术展示成待满足要求。若关键词同时出现在明确条件中，条件仍正常匹配。
 
-该保护不改数据库 schema 或历史记录。旧解析结果原文仍可在职位详情中看到；事实检索目前仍可能使用 `mentioned` 关键词做候选召回，因此候选排序不代表已解决，候选也不能成为支持证据。尚未使用真实招聘网站或个人简历测试。
+该保护不改数据库 schema 或历史记录。旧解析结果原文仍可在职位详情中看到；T20 时事实检索仍使用全部 `mentioned` 关键词做候选召回，该词项边界随后由 [T21](t21-execution.md) 调整。候选排序效果尚未测量，候选也不能成为支持证据。尚未使用真实招聘网站或个人简历测试。
 
 定向回归命令：`python -m pytest -p no:cacheprovider -q tests/test_t20_jd_polarity.py tests/test_jd_parser.py tests/test_t19_disjunctive_match.py tests/test_t4_match.py -m "not integration"`，结果 32 passed、3 deselected。Docker Desktop Linux Engine 恢复后，`python -m pytest -p no:cacheprovider -q --tb=short` 全量回归 279 passed、3 warnings（依赖弃用警告）。

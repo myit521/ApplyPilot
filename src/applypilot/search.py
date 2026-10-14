@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+import re
 
 import psycopg
 
@@ -26,8 +27,11 @@ from .schemas import Fact, JobRequirements, KeywordRequirement
 _CANDIDATE_LIMIT = 20
 
 
-def _escape_like(term: str) -> str:
-    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+def _keyword_pattern(term: str) -> str:
+    literal = re.escape(term)
+    if re.search(r"[A-Za-z0-9]", term):
+        return rf"(^|[^A-Za-z0-9]){literal}($|[^A-Za-z0-9])"
+    return literal
 
 
 def _safe_required(requirements: JobRequirements) -> list[str]:
@@ -78,17 +82,17 @@ def fulltext_hits(
     terms = [t.strip() for t in terms if t.strip()]
     if not terms:
         return {}
-    patterns = [f"%{_escape_like(t)}%" for t in terms]
+    patterns = [_keyword_pattern(term) for term in terms]
     rows = conn.execute(
         """
         SELECT id, matched::float / %(n)s AS score FROM (
             SELECT id, (
-                SELECT count(*) FROM unnest(%(patterns)s::text[]) p
-                WHERE content ILIKE p ESCAPE '\\'
-                   OR source_name ILIKE p ESCAPE '\\'
+                SELECT count(*) FROM unnest(%(terms)s::text[], %(patterns)s::text[]) AS t(term, pattern)
+                WHERE content ~* t.pattern
+                   OR source_name ~* t.pattern
                    OR EXISTS (
                         SELECT 1 FROM unnest(skills) s
-                        WHERE p ILIKE concat('%%', s, '%%') ESCAPE '\\'
+                        WHERE lower(btrim(s)) = lower(t.term)
                       )
             ) AS matched
             FROM facts WHERE enabled AND status='confirmed'
@@ -98,7 +102,7 @@ def fulltext_hits(
         ORDER BY score DESC, id
         LIMIT %(limit)s
         """,
-        {"patterns": patterns, "n": len(terms), "limit": limit, "exclude_education": exclude_education},
+        {"terms": terms, "patterns": patterns, "n": len(terms), "limit": limit, "exclude_education": exclude_education},
     ).fetchall()
     return {r["id"]: float(r["score"]) for r in rows}
 

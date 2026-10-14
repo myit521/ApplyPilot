@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "origin": "Two frozen synthetic T18 seeded errors, with T22 semantic residual checks fixed before T23 calls.",
+  "cases": [
+    {"id":"s-h12","mode":"seeded_repair","source_id":"h12","not_promoted":["不限制实习经历","后端"],"not_unknown_about":["实习"],"must_fields":{"job_title":"校招后端","location":"武汉","education_requirement":"本科","graduation_time_requirement":"2027"}},
+    {"id":"s-h20","mode":"seeded_repair","source_id":"h20","must_required":["Java"],"not_promoted":["GraphQL"],"must_fields":{"job_title":"移动服务后端"}}
+  ]
+}

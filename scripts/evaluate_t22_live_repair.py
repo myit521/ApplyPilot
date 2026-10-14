@@ -36,22 +36,27 @@ def obligations(case: dict, observed: dict) -> list[str]:
     for field, term in case.get("must_fields", {}).items():
         if term.casefold() not in observed[field].casefold():
             failures.append(f"missing_field:{field}:{term}")
+    for term in case.get("not_unknown_about", []):
+        if any(_contains_term(text, term) for text in observed.get("unknowns", [])):
+            failures.append(f"unexpected_unknown:{term}")
     return failures
 
 
-def run(api_key: str, output: Path) -> dict:
+def run(api_key: str, output: Path, *, fixture: Path = FIXTURE,
+        expected_counts: tuple[int, int] = (8, 2)) -> dict:
     if output.exists():
         raise FileExistsError(f"Refusing to overwrite {output}")
     if not api_key.strip():
         raise ValueError("DEEPSEEK_API_KEY is required")
-    fixture_bytes, source_bytes = FIXTURE.read_bytes(), SOURCE.read_bytes()
+    fixture_bytes, source_bytes = fixture.read_bytes(), SOURCE.read_bytes()
     cases = json.loads(fixture_bytes)["cases"]
     source = {row["id"]: row for row in json.loads(source_bytes)["cases"]}
-    if (len(cases) != 10 or len({case["id"] for case in cases}) != 10
-            or sum(case["mode"] == "natural" for case in cases) != 8
-            or sum(case["mode"] == "seeded_repair" for case in cases) != 2
+    request_cap = 2 * expected_counts[0] + expected_counts[1]
+    if (len(cases) != sum(expected_counts) or len({case["id"] for case in cases}) != len(cases)
+            or sum(case["mode"] == "natural" for case in cases) != expected_counts[0]
+            or sum(case["mode"] == "seeded_repair" for case in cases) != expected_counts[1]
             or any(case.get("source_id") not in source for case in cases if "source_id" in case)):
-        raise ValueError("T22 requires the frozen eight-natural/two-seeded fixture")
+        raise ValueError("Fixture does not match the selected probe groups")
     if not json.loads(source_bytes)["run"]["synthetic_only"]:
         raise ValueError("T22 accepts only the synthetic T18 report")
     for case in cases:
@@ -65,10 +70,10 @@ def run(api_key: str, output: Path) -> dict:
     report = {
         "run": {"at_utc": datetime.now(timezone.utc).isoformat(),
                 "source_commit": _source_commit(), "model_requested": "deepseek-chat",
-                "temperature": 0.2, "request_cap": 18, "attempted_requests": 0,
+                "temperature": 0.2, "request_cap": request_cap, "attempted_requests": 0,
                 "max_output_tokens_per_request": 1000, "transport_retries": 0,
                 "status": "running", "synthetic_only": True},
-        "fixtures_sha256": {"t22_cases": hashlib.sha256(fixture_bytes).hexdigest(),
+        "fixtures_sha256": {fixture.stem: hashlib.sha256(fixture_bytes).hexdigest(),
                             "t18_report": hashlib.sha256(source_bytes).hexdigest()},
         "cases": [],
         "limits": ["Selected known regressions cannot estimate natural error rates.",
@@ -92,7 +97,7 @@ def run(api_key: str, output: Path) -> dict:
                 row["parser_calls"] += 1
                 if seeded and row["parser_calls"] == 1:
                     return json.dumps(original["observed"], ensure_ascii=False)
-                if report["run"]["attempted_requests"] >= 18 or row["parser_calls"] > 2:
+                if report["run"]["attempted_requests"] >= request_cap or row["parser_calls"] > 2:
                     raise ModelError("request_cap")
                 report["run"]["attempted_requests"] += 1
                 response = request_once(api_key, system, user, max_tokens=1000)
@@ -141,9 +146,12 @@ def run(api_key: str, output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--t23-seeded-only", action="store_true",
+                        help="Run the two frozen T23 seeded probes (at most two requests)")
     args = parser.parse_args()
-    report = run(os.environ.get("DEEPSEEK_API_KEY", ""), args.output)
-    print(f"Recorded {len(report['cases'])}/10 cases; requests={report['run']['attempted_requests']}")
+    options = {"fixture": ROOT / "tests/fixtures/t23_repair_cases.json", "expected_counts": (0, 2)} if args.t23_seeded_only else {}
+    report = run(os.environ.get("DEEPSEEK_API_KEY", ""), args.output, **options)
+    print(f"Recorded {len(report['cases'])} cases; requests={report['run']['attempted_requests']}")
     if report["run"]["status"] != "complete":
         raise SystemExit(1)
 

@@ -88,3 +88,26 @@ def test_unexpected_runner_error_is_not_reported_as_transport(monkeypatch, tmp_p
     assert report["run"]["status"] == "partial"
     assert report["cases"][0]["outcome"] == "runner_failed"
     assert report["run"]["attempted_requests"] == 1
+
+
+def test_t23_seeded_only_probe_is_capped_at_two_calls(monkeypatch, tmp_path):
+    monkeypatch.setattr(evaluation, "_source_commit", lambda: "fixed")
+    calls = []
+
+    def request(*args, **kwargs):
+        calls.append(1)
+        return response({"job_title": "stub"})
+
+    monkeypatch.setattr(evaluation, "request_once", request)
+    report = evaluation.run("test-key", tmp_path / "report.json",
+                            fixture=evaluation.ROOT / "tests/fixtures/t23_repair_cases.json",
+                            expected_counts=(0, 2))
+    assert len(calls) == 2
+    assert report["run"]["request_cap"] == 2
+    assert all(row["repair_attempted"] for row in report["cases"])
+
+
+def test_explicit_nonrequirement_rephrased_as_unknown_is_a_failed_obligation():
+    observed = {"required": [], "preferred": [], "experience_requirement": "",
+                "keywords": [], "unknowns": ["实习经历是否要求"]}
+    assert evaluation.obligations({"not_unknown_about": ["实习"]}, observed) == ["unexpected_unknown:实习"]

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "origin": "Synthetic facts and manually parsed requirements, labeled before T24 ranking; no personal resume or real posting.",
+  "relevance_definition": "A fact contains concrete work useful to the query's role, technology or responsibility; relevance does not prove that all job requirements are satisfied.",
+  "facts": [
+    {"id":"f01","status":"confirmed","fact_type":"project","source_name":"合成接口项目","content":"使用 Java 和 Spring Boot 实现订单 REST 接口，处理请求参数和业务异常。","skills":["Java","Spring Boot"]},
+    {"id":"f02","status":"confirmed","fact_type":"project","source_name":"合成批处理项目","content":"用 Java 实现批量业务接口，保存执行结果供调用方查询。","skills":["Java"]},
+    {"id":"f03","status":"confirmed","fact_type":"project","source_name":"合成数据项目","content":"为 MySQL 查询设计联合索引，比较修改前后的查询计划。","skills":["MySQL","SQL"]},
+    {"id":"f04","status":"confirmed","fact_type":"project","source_name":"合成查询项目","content":"通过 MySQL 慢查询日志定位全表扫描，调整索引并回归验证。","skills":["MySQL"]},
+    {"id":"f05","status":"confirmed","fact_type":"project","source_name":"合成事务项目","content":"使用 SQL 编写事务提交与回滚示例，没有分析查询性能。","skills":["SQL"]},
+    {"id":"f06","status":"confirmed","fact_type":"project","source_name":"合成缓存项目","content":"用 Redis 缓存商品详情，并处理数据库更新后的缓存失效。","skills":["Redis"]},
+    {"id":"f07","status":"confirmed","fact_type":"project","source_name":"合成读服务项目","content":"将高频读取结果保存在内存副本，设置存活时间并验证过期后重新读取数据库。","skills":[]},
+    {"id":"f08","status":"confirmed","fact_type":"internship","source_name":"合成协作项目","content":"与多个团队对接服务入口，复现请求响应不一致问题并共同确认修复。","skills":[]},
+    {"id":"f09","status":"confirmed","fact_type":"project","source_name":"合成协议项目","content":"核对上下游接口的字段和错误码约定，组织双方验证兼容性变更。","skills":[]},
+    {"id":"f10","status":"confirmed","fact_type":"project","source_name":"合成问答项目","content":"使用 Python 和 FastAPI 提供文档问答服务，引用用户上传的材料。","skills":["Python","FastAPI"]},
+    {"id":"f11","status":"confirmed","fact_type":"project","source_name":"合成工具项目","content":"用 Python 记录智能助手每次调用外部函数的参数、结果与异常，供审核回看。","skills":["Python"]},
+    {"id":"f12","status":"confirmed","fact_type":"project","source_name":"合成数据库运维","content":"使用 PostgreSQL 的 pg_dump 保存数据库，并在新实例恢复表和记录。","skills":["PostgreSQL"]},
+    {"id":"f13","status":"confirmed","fact_type":"project","source_name":"合成灾备项目","content":"在隔离环境导入历史数据副本，核对记录总数和引用关系以演练故障后的恢复。","skills":[]},
+    {"id":"f14","status":"confirmed","fact_type":"project","source_name":"合成单测项目","content":"为 Java 服务编写 JUnit 单元测试，覆盖合法输入和异常分支。","skills":["Java","JUnit"]},
+    {"id":"f15","status":"confirmed","fact_type":"project","source_name":"合成质量项目","content":"把历史故障的复现步骤编成自动化检查，在每次修改后运行以防问题再次出现。","skills":[]},
+    {"id":"f16","status":"confirmed","fact_type":"project","source_name":"合成消息项目","content":"使用 Kafka 发送业务事件，记录消费者异常并验证失败后的重试。","skills":["Kafka"]},
+    {"id":"f17","status":"confirmed","fact_type":"project","source_name":"合成交付项目","content":"为异步事件处理设计重新投递和去重规则，核对重复到达时只处理一次。","skills":[]},
+    {"id":"f18","status":"confirmed","fact_type":"project","source_name":"合成前端项目","content":"用 Vue 实现页面表单和路由，未实现服务端业务接口。","skills":["Vue"]},
+    {"id":"f19","status":"confirmed","fact_type":"project","source_name":"合成样式项目","content":"使用 CSS 调整网页色彩、间距和布局。","skills":["CSS"]},
+    {"id":"f20","status":"confirmed","fact_type":"project","source_name":"合成仓库维护","content":"维护 Git 分支命名规范，没有编写业务测试。","skills":["Git"]},
+    {"id":"f21","status":"confirmed","fact_type":"project","source_name":"合成脚本项目","content":"用 JavaScript 修改网页交互逻辑。","skills":["JavaScript"]},
+    {"id":"f22","status":"confirmed","fact_type":"project","source_name":"合成语法练习","content":"用 Java 编写控制台排序练习，没有实现业务服务。","skills":["Java"]},
+    {"id":"f23","status":"draft","fact_type":"skill","source_name":"合成待确认事实","content":"自述使用 Kafka 进行异步事件处理。","skills":["Kafka"]},
+    {"id":"f24","status":"confirmed","enabled":false,"fact_type":"project","source_name":"合成已停用事实","content":"曾使用 Redis 处理缓存过期。","skills":["Redis"]},
+    {"id":"f25","status":"confirmed","fact_type":"education","source_name":"合成教育事实","content":"合成计算机专业本科在读。","skills":[]}
+  ],
+  "cases": [
+    {"id":"q01","requirements":{"job_title":"Java 接口开发","required":["Java 和 Spring Boot"],"responsibilities":["实现业务接口"],"keywords":[{"term":"Java","importance":"required"},{"term":"Spring Boot","importance":"required"}]},"relevant":[{"fact_id":"f01","reason":"明确实现 Java/Spring Boot 业务接口"},{"fact_id":"f02","reason":"实现 Java 批量业务接口"}]},
+    {"id":"q02","requirements":{"job_title":"数据库查询优化","required":["MySQL"],"responsibilities":["分析慢查询和索引"],"keywords":[{"term":"MySQL","importance":"required"},{"term":"慢查询","importance":"mentioned"}]},"relevant":[{"fact_id":"f03","reason":"索引与查询计划分析"},{"fact_id":"f04","reason":"慢查询诊断和索引回归"}]},
+    {"id":"q03","requirements":{"job_title":"缓存服务开发","required":["Redis"],"responsibilities":["验证缓存失效和过期"],"keywords":[{"term":"Redis","importance":"required"},{"term":"缓存失效","importance":"mentioned"}]},"relevant":[{"fact_id":"f06","reason":"Redis 与更新后的缓存失效"},{"fact_id":"f07","reason":"语义上描述存活时间和过期读库，未写 Redis"}]},
+    {"id":"q04","requirements":{"job_title":"服务集成工程师","required":["跨团队联调"],"responsibilities":["核对接口协议"],"keywords":[{"term":"跨团队联调","importance":"required"},{"term":"接口协议","importance":"mentioned"}]},"relevant":[{"fact_id":"f08","reason":"跨团队共同定位请求响应问题"},{"fact_id":"f09","reason":"上下游协议与兼容性协作验证"}]},
+    {"id":"q05","requirements":{"job_title":"AI 应用后端","required":["Python 和 FastAPI"],"responsibilities":["工具调用审计"],"keywords":[{"term":"Python","importance":"required"},{"term":"FastAPI","importance":"required"},{"term":"工具调用审计","importance":"mentioned"}]},"relevant":[{"fact_id":"f10","reason":"Python/FastAPI 问答服务"},{"fact_id":"f11","reason":"智能助手函数调用记录与审核"}]},
+    {"id":"q06","requirements":{"job_title":"数据库备份恢复","required":["PostgreSQL"],"responsibilities":["灾备恢复演练"],"keywords":[{"term":"PostgreSQL","importance":"required"},{"term":"灾备恢复","importance":"mentioned"}]},"relevant":[{"fact_id":"f12","reason":"PostgreSQL 备份与新实例恢复"},{"fact_id":"f13","reason":"副本导入与故障恢复核对"}]},
+    {"id":"q07","requirements":{"job_title":"自动化质量开发","required":["JUnit"],"responsibilities":["故障回归测试"],"keywords":[{"term":"JUnit","importance":"required"},{"term":"回归测试","importance":"mentioned"}]},"relevant":[{"fact_id":"f14","reason":"JUnit 合法输入与异常测试"},{"fact_id":"f15","reason":"历史故障自动化防回归检查"}]},
+    {"id":"q08","requirements":{"job_title":"消息可靠性开发","required":["Kafka"],"responsibilities":["消息失败重试与去重"],"keywords":[{"term":"Kafka","importance":"required"},{"term":"去重","importance":"mentioned"}]},"relevant":[{"fact_id":"f16","reason":"Kafka 消费异常重试"},{"fact_id":"f17","reason":"异步投递与重复事件只处理一次"}]},
+    {"id":"q09","requirements":{"job_title":"Rust 系统研发","required":["Rust 和 Linux 内核"],"keywords":[{"term":"Rust","importance":"required"},{"term":"Linux","importance":"required"}]},"relevant":[],"reason":"固定事实集没有 Rust 或内核研发经历；单列无相关事实诊断，不把 Recall 的零分母设为 0"}
+  ]
+}

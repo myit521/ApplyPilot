@@ -1,0 +1,3284 @@
+{
+  "run": {
+    "at_utc": "2026-10-14T07:08:56.079967+00:00",
+    "source_commit": "4b5de17a02f560202cf859b407e5a0a7dcba8ea0",
+    "status": "complete",
+    "synthetic_only": true,
+    "model_network_disabled": true,
+    "top_k": 5,
+    "candidate_limit": 20,
+    "weights": {
+      "skill": 0.5,
+      "fulltext": 0.2,
+      "vector": 0.3
+    },
+    "vector_only_weights": {
+      "skill": 0,
+      "fulltext": 0,
+      "vector": 1
+    },
+    "eligible_fact_count": 22
+  },
+  "fixture_sha256": "ba91dac10628bdc637786834df3b10b03a7a36a80b3399c905b3ea9774b1ebda",
+  "embedding": {
+    "model": "BAAI/bge-small-zh-v1.5",
+    "snapshot": "7999e1d3359715c523056ef9478215996d62a620",
+    "sentence_transformers": "6.0.1",
+    "files_sha256": {
+      "1_Pooling/config.json": "aaa8861589f80c961a03cc86c7eeaef7605c1676b9ab55329d33a304738769c6",
+      "config.json": "3853a7979202c348751b753e36f579c41d8da7d36af617d3d907e1fc9b441f2a",
+      "config_sentence_transformers.json": "940d5f50db195fa6e5e6a4f122c095f77880de259d74b14a65779ed48bdd7c56",
+      "model.safetensors": "354763b9b1357bc9c44f62c6be2276321081ed2567773608c0d0785b61d5a026",
+      "modules.json": "84e40c8e006c9b1d6c122e02cba9b02458120b5fb0c87b746c41e0207cf642cf",
+      "sentence_bert_config.json": "84e39fda68ccbff05bfa723ae9c0e70e23e2ec373b76e0f8c6e71af72a693cbf",
+      "special_tokens_map.json": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+      "tokenizer.json": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+      "tokenizer_config.json": "e6f3b96db926a37d4039995fbf5ad17de158dfb8f6343d607e4dbaad18d75f5a",
+      "vocab.txt": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c"
+    },
+    "device": "cuda:0"
+  },
+  "cases": [
+    {
+      "id": "q01",
+      "terms": [
+        "Java",
+        "Spring Boot"
+      ],
+      "required_skill_terms": [
+        "Java",
+        "Spring Boot"
+      ],
+      "query_text": "Java 接口开发 Java 和 Spring Boot 实现业务接口 Java Spring Boot",
+      "gold_ids": [
+        "f01",
+        "f02"
+      ],
+      "keyword_candidate_count": 4,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f01",
+          "f14",
+          "f22",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f01",
+            "score": 0.7,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.0
+          },
+          {
+            "id": "f14",
+            "score": 0.35,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.0
+          },
+          {
+            "id": "f22",
+            "score": 0.35,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.0
+          },
+          {
+            "id": "f02",
+            "score": 0.35,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f01",
+          "f02",
+          "f18",
+          "f14",
+          "f22"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f01",
+            "score": 0.797287,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.7972871661186218
+          },
+          {
+            "id": "f02",
+            "score": 0.698585,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6985845149407093
+          },
+          {
+            "id": "f18",
+            "score": 0.583341,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5833414793014526
+          },
+          {
+            "id": "f14",
+            "score": 0.582848,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5828483278408151
+          },
+          {
+            "id": "f22",
+            "score": 0.543956,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5439562797546387
+          },
+          {
+            "id": "f21",
+            "score": 0.493171,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49317118484802247
+          },
+          {
+            "id": "f10",
+            "score": 0.486662,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4866621494293213
+          },
+          {
+            "id": "f03",
+            "score": 0.469057,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.469056636095047
+          },
+          {
+            "id": "f09",
+            "score": 0.455353,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.455352728920853
+          },
+          {
+            "id": "f08",
+            "score": 0.448612,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4486124515533447
+          },
+          {
+            "id": "f06",
+            "score": 0.433447,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4334467649459839
+          },
+          {
+            "id": "f19",
+            "score": 0.432498,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4324977695941925
+          },
+          {
+            "id": "f05",
+            "score": 0.43132,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4313195049762726
+          },
+          {
+            "id": "f20",
+            "score": 0.420528,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42052767933987634
+          },
+          {
+            "id": "f12",
+            "score": 0.408594,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4085937738418579
+          },
+          {
+            "id": "f04",
+            "score": 0.407487,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40748700499534607
+          },
+          {
+            "id": "f11",
+            "score": 0.404057,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40405687117915656
+          },
+          {
+            "id": "f07",
+            "score": 0.38028,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3802799129152429
+          },
+          {
+            "id": "f16",
+            "score": 0.365561,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36556103825569153
+          },
+          {
+            "id": "f13",
+            "score": 0.364081,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36408111453056335
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f01",
+          "f02",
+          "f14",
+          "f22",
+          "f18"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f01",
+            "score": 0.939186,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.7972871661186218
+          },
+          {
+            "id": "f02",
+            "score": 0.559575,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.6985845149407093
+          },
+          {
+            "id": "f14",
+            "score": 0.524854,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.5828483278408151
+          },
+          {
+            "id": "f22",
+            "score": 0.513187,
+            "skill_coverage": 0.5,
+            "fulltext": 0.5,
+            "vector": 0.5439562797546387
+          },
+          {
+            "id": "f18",
+            "score": 0.175002,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5833414793014526
+          },
+          {
+            "id": "f21",
+            "score": 0.147951,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49317118484802247
+          },
+          {
+            "id": "f10",
+            "score": 0.145999,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4866621494293213
+          },
+          {
+            "id": "f03",
+            "score": 0.140717,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.469056636095047
+          },
+          {
+            "id": "f09",
+            "score": 0.136606,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.455352728920853
+          },
+          {
+            "id": "f08",
+            "score": 0.134584,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4486124515533447
+          },
+          {
+            "id": "f06",
+            "score": 0.130034,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4334467649459839
+          },
+          {
+            "id": "f19",
+            "score": 0.129749,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4324977695941925
+          },
+          {
+            "id": "f05",
+            "score": 0.129396,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4313195049762726
+          },
+          {
+            "id": "f20",
+            "score": 0.126158,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42052767933987634
+          },
+          {
+            "id": "f12",
+            "score": 0.122578,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4085937738418579
+          },
+          {
+            "id": "f04",
+            "score": 0.122246,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40748700499534607
+          },
+          {
+            "id": "f11",
+            "score": 0.121217,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40405687117915656
+          },
+          {
+            "id": "f07",
+            "score": 0.114084,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3802799129152429
+          },
+          {
+            "id": "f16",
+            "score": 0.109668,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36556103825569153
+          },
+          {
+            "id": "f13",
+            "score": 0.109224,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36408111453056335
+          }
+        ]
+      }
+    },
+    {
+      "id": "q02",
+      "terms": [
+        "MySQL",
+        "慢查询"
+      ],
+      "required_skill_terms": [
+        "MySQL"
+      ],
+      "query_text": "数据库查询优化 MySQL 分析慢查询和索引 MySQL 慢查询",
+      "gold_ids": [
+        "f03",
+        "f04"
+      ],
+      "keyword_candidate_count": 2,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f04",
+          "f03"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f04",
+            "score": 0.7,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.0
+          },
+          {
+            "id": "f03",
+            "score": 0.6,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f04",
+          "f03",
+          "f06",
+          "f05",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f04",
+            "score": 0.806734,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.8067342638969421
+          },
+          {
+            "id": "f03",
+            "score": 0.768815,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.768814742565155
+          },
+          {
+            "id": "f06",
+            "score": 0.642039,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6420389413833618
+          },
+          {
+            "id": "f05",
+            "score": 0.621207,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6212071180343628
+          },
+          {
+            "id": "f02",
+            "score": 0.60376,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6037604448938115
+          },
+          {
+            "id": "f11",
+            "score": 0.585971,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5859709135276634
+          },
+          {
+            "id": "f12",
+            "score": 0.567108,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5671083927154541
+          },
+          {
+            "id": "f07",
+            "score": 0.565158,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5651578229477657
+          },
+          {
+            "id": "f10",
+            "score": 0.55321,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5532099008560181
+          },
+          {
+            "id": "f01",
+            "score": 0.549186,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5491858720779419
+          },
+          {
+            "id": "f21",
+            "score": 0.488275,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.488275080220407
+          },
+          {
+            "id": "f16",
+            "score": 0.482884,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4828835129737854
+          },
+          {
+            "id": "f18",
+            "score": 0.480726,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4807262718677521
+          },
+          {
+            "id": "f20",
+            "score": 0.466587,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.466587140160416
+          },
+          {
+            "id": "f15",
+            "score": 0.464208,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.46420762156202744
+          },
+          {
+            "id": "f14",
+            "score": 0.447809,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44780875586893454
+          },
+          {
+            "id": "f22",
+            "score": 0.442732,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44273173809051514
+          },
+          {
+            "id": "f13",
+            "score": 0.438706,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43870580196380615
+          },
+          {
+            "id": "f17",
+            "score": 0.437985,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43798476457595825
+          },
+          {
+            "id": "f19",
+            "score": 0.43419,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4341895878314972
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f04",
+          "f03",
+          "f06",
+          "f05",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f04",
+            "score": 0.94202,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.8067342638969421
+          },
+          {
+            "id": "f03",
+            "score": 0.830644,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.768814742565155
+          },
+          {
+            "id": "f06",
+            "score": 0.192612,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6420389413833618
+          },
+          {
+            "id": "f05",
+            "score": 0.186362,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6212071180343628
+          },
+          {
+            "id": "f02",
+            "score": 0.181128,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6037604448938115
+          },
+          {
+            "id": "f11",
+            "score": 0.175791,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5859709135276634
+          },
+          {
+            "id": "f12",
+            "score": 0.170133,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5671083927154541
+          },
+          {
+            "id": "f07",
+            "score": 0.169547,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5651578229477657
+          },
+          {
+            "id": "f10",
+            "score": 0.165963,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5532099008560181
+          },
+          {
+            "id": "f01",
+            "score": 0.164756,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5491858720779419
+          },
+          {
+            "id": "f21",
+            "score": 0.146483,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.488275080220407
+          },
+          {
+            "id": "f16",
+            "score": 0.144865,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4828835129737854
+          },
+          {
+            "id": "f18",
+            "score": 0.144218,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4807262718677521
+          },
+          {
+            "id": "f20",
+            "score": 0.139976,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.466587140160416
+          },
+          {
+            "id": "f15",
+            "score": 0.139262,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.46420762156202744
+          },
+          {
+            "id": "f14",
+            "score": 0.134343,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44780875586893454
+          },
+          {
+            "id": "f22",
+            "score": 0.13282,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44273173809051514
+          },
+          {
+            "id": "f13",
+            "score": 0.131612,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43870580196380615
+          },
+          {
+            "id": "f17",
+            "score": 0.131395,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43798476457595825
+          },
+          {
+            "id": "f19",
+            "score": 0.130257,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4341895878314972
+          }
+        ]
+      }
+    },
+    {
+      "id": "q03",
+      "terms": [
+        "Redis",
+        "缓存失效"
+      ],
+      "required_skill_terms": [
+        "Redis"
+      ],
+      "query_text": "缓存服务开发 Redis 验证缓存失效和过期 Redis 缓存失效",
+      "gold_ids": [
+        "f06",
+        "f07"
+      ],
+      "keyword_candidate_count": 1,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f06"
+        ],
+        "relevant_count": 2,
+        "hits": 1,
+        "recall_at_5": 0.5,
+        "precision_at_5": 0.2,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 0.5,
+        "recall_tie_upper": 0.5,
+        "ranking": [
+          {
+            "id": "f06",
+            "score": 0.7,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f06",
+          "f07",
+          "f02",
+          "f04",
+          "f01"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f06",
+            "score": 0.814674,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.8146740198135376
+          },
+          {
+            "id": "f07",
+            "score": 0.658637,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6586374451354258
+          },
+          {
+            "id": "f02",
+            "score": 0.594331,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5943314674895138
+          },
+          {
+            "id": "f04",
+            "score": 0.591973,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5919731855392456
+          },
+          {
+            "id": "f01",
+            "score": 0.59029,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5902902483940125
+          },
+          {
+            "id": "f12",
+            "score": 0.549491,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5494909882545471
+          },
+          {
+            "id": "f16",
+            "score": 0.547067,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5470665693283081
+          },
+          {
+            "id": "f05",
+            "score": 0.51858,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5185796618461609
+          },
+          {
+            "id": "f03",
+            "score": 0.5119,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5119003057479858
+          },
+          {
+            "id": "f20",
+            "score": 0.496088,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49608759570382843
+          },
+          {
+            "id": "f22",
+            "score": 0.491459,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4914586842060089
+          },
+          {
+            "id": "f08",
+            "score": 0.491266,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49126577377319336
+          },
+          {
+            "id": "f18",
+            "score": 0.486787,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48678743839263916
+          },
+          {
+            "id": "f13",
+            "score": 0.483843,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4838431775569916
+          },
+          {
+            "id": "f10",
+            "score": 0.483626,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4836258888244629
+          },
+          {
+            "id": "f09",
+            "score": 0.469364,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4693638420863373
+          },
+          {
+            "id": "f14",
+            "score": 0.464399,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4643990535855014
+          },
+          {
+            "id": "f21",
+            "score": 0.444773,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4447725084288432
+          },
+          {
+            "id": "f11",
+            "score": 0.441641,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4416412974382228
+          },
+          {
+            "id": "f17",
+            "score": 0.437319,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4373186528682709
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f06",
+          "f07",
+          "f02",
+          "f04",
+          "f01"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f06",
+            "score": 0.944402,
+            "skill_coverage": 1.0,
+            "fulltext": 1.0,
+            "vector": 0.8146740198135376
+          },
+          {
+            "id": "f07",
+            "score": 0.197591,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6586374451354258
+          },
+          {
+            "id": "f02",
+            "score": 0.178299,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5943314674895138
+          },
+          {
+            "id": "f04",
+            "score": 0.177592,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5919731855392456
+          },
+          {
+            "id": "f01",
+            "score": 0.177087,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5902902483940125
+          },
+          {
+            "id": "f12",
+            "score": 0.164847,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5494909882545471
+          },
+          {
+            "id": "f16",
+            "score": 0.16412,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5470665693283081
+          },
+          {
+            "id": "f05",
+            "score": 0.155574,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5185796618461609
+          },
+          {
+            "id": "f03",
+            "score": 0.15357,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5119003057479858
+          },
+          {
+            "id": "f20",
+            "score": 0.148826,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49608759570382843
+          },
+          {
+            "id": "f22",
+            "score": 0.147438,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4914586842060089
+          },
+          {
+            "id": "f08",
+            "score": 0.14738,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49126577377319336
+          },
+          {
+            "id": "f18",
+            "score": 0.146036,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48678743839263916
+          },
+          {
+            "id": "f13",
+            "score": 0.145153,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4838431775569916
+          },
+          {
+            "id": "f10",
+            "score": 0.145088,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4836258888244629
+          },
+          {
+            "id": "f09",
+            "score": 0.140809,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4693638420863373
+          },
+          {
+            "id": "f14",
+            "score": 0.13932,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4643990535855014
+          },
+          {
+            "id": "f21",
+            "score": 0.133432,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4447725084288432
+          },
+          {
+            "id": "f11",
+            "score": 0.132492,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4416412974382228
+          },
+          {
+            "id": "f17",
+            "score": 0.131196,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4373186528682709
+          }
+        ]
+      }
+    },
+    {
+      "id": "q04",
+      "terms": [
+        "跨团队联调",
+        "接口协议"
+      ],
+      "required_skill_terms": [
+        "跨团队联调"
+      ],
+      "query_text": "服务集成工程师 跨团队联调 核对接口协议 跨团队联调 接口协议",
+      "gold_ids": [
+        "f08",
+        "f09"
+      ],
+      "keyword_candidate_count": 0,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [],
+        "relevant_count": 2,
+        "hits": 0,
+        "recall_at_5": 0.0,
+        "precision_at_5": 0.0,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 0.0,
+        "recall_tie_upper": 0.0,
+        "ranking": []
+      },
+      "vector_only": {
+        "top_ids": [
+          "f08",
+          "f09",
+          "f02",
+          "f01",
+          "f18"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f08",
+            "score": 0.599278,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5992781758738662
+          },
+          {
+            "id": "f09",
+            "score": 0.554837,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5548373660736036
+          },
+          {
+            "id": "f02",
+            "score": 0.545114,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5451137369735555
+          },
+          {
+            "id": "f01",
+            "score": 0.508485,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5084849888989345
+          },
+          {
+            "id": "f18",
+            "score": 0.481144,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48114386313296265
+          },
+          {
+            "id": "f14",
+            "score": 0.446893,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4468929634424179
+          },
+          {
+            "id": "f17",
+            "score": 0.416145,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41614518069355677
+          },
+          {
+            "id": "f21",
+            "score": 0.404482,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40448248386383345
+          },
+          {
+            "id": "f13",
+            "score": 0.400396,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40039566752936506
+          },
+          {
+            "id": "f03",
+            "score": 0.396196,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.396196401345945
+          },
+          {
+            "id": "f22",
+            "score": 0.382712,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3827123413853448
+          },
+          {
+            "id": "f20",
+            "score": 0.377219,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3772193677061999
+          },
+          {
+            "id": "f10",
+            "score": 0.371015,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3710154669871655
+          },
+          {
+            "id": "f15",
+            "score": 0.362954,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36295409644197263
+          },
+          {
+            "id": "f07",
+            "score": 0.357722,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3577221886416342
+          },
+          {
+            "id": "f11",
+            "score": 0.357004,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3570035099983241
+          },
+          {
+            "id": "f05",
+            "score": 0.350899,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.35089907938843556
+          },
+          {
+            "id": "f06",
+            "score": 0.342148,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.34214804517340447
+          },
+          {
+            "id": "f19",
+            "score": 0.338515,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3385148740699968
+          },
+          {
+            "id": "f04",
+            "score": 0.335628,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3356280722839795
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f08",
+          "f09",
+          "f02",
+          "f01",
+          "f18"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f08",
+            "score": 0.179783,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5992781758738662
+          },
+          {
+            "id": "f09",
+            "score": 0.166451,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5548373660736036
+          },
+          {
+            "id": "f02",
+            "score": 0.163534,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5451137369735555
+          },
+          {
+            "id": "f01",
+            "score": 0.152545,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5084849888989345
+          },
+          {
+            "id": "f18",
+            "score": 0.144343,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48114386313296265
+          },
+          {
+            "id": "f14",
+            "score": 0.134068,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4468929634424179
+          },
+          {
+            "id": "f17",
+            "score": 0.124844,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41614518069355677
+          },
+          {
+            "id": "f21",
+            "score": 0.121345,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40448248386383345
+          },
+          {
+            "id": "f13",
+            "score": 0.120119,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40039566752936506
+          },
+          {
+            "id": "f03",
+            "score": 0.118859,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.396196401345945
+          },
+          {
+            "id": "f22",
+            "score": 0.114814,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3827123413853448
+          },
+          {
+            "id": "f20",
+            "score": 0.113166,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3772193677061999
+          },
+          {
+            "id": "f10",
+            "score": 0.111305,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3710154669871655
+          },
+          {
+            "id": "f15",
+            "score": 0.108886,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36295409644197263
+          },
+          {
+            "id": "f07",
+            "score": 0.107317,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3577221886416342
+          },
+          {
+            "id": "f11",
+            "score": 0.107101,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3570035099983241
+          },
+          {
+            "id": "f05",
+            "score": 0.10527,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.35089907938843556
+          },
+          {
+            "id": "f06",
+            "score": 0.102644,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.34214804517340447
+          },
+          {
+            "id": "f19",
+            "score": 0.101554,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3385148740699968
+          },
+          {
+            "id": "f04",
+            "score": 0.100688,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3356280722839795
+          }
+        ]
+      }
+    },
+    {
+      "id": "q05",
+      "terms": [
+        "Python",
+        "FastAPI",
+        "工具调用审计"
+      ],
+      "required_skill_terms": [
+        "Python",
+        "FastAPI"
+      ],
+      "query_text": "AI 应用后端 Python 和 FastAPI 工具调用审计 Python FastAPI 工具调用审计",
+      "gold_ids": [
+        "f10",
+        "f11"
+      ],
+      "keyword_candidate_count": 2,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f10",
+          "f11"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f10",
+            "score": 0.633333,
+            "skill_coverage": 1.0,
+            "fulltext": 0.6666666666666666,
+            "vector": 0.0
+          },
+          {
+            "id": "f11",
+            "score": 0.316667,
+            "skill_coverage": 0.5,
+            "fulltext": 0.3333333333333333,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f10",
+          "f11",
+          "f02",
+          "f14",
+          "f21"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f10",
+            "score": 0.647452,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6474520774214233
+          },
+          {
+            "id": "f11",
+            "score": 0.635372,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6353719830513046
+          },
+          {
+            "id": "f02",
+            "score": 0.589817,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5898166191796518
+          },
+          {
+            "id": "f14",
+            "score": 0.520329,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5203286850354488
+          },
+          {
+            "id": "f21",
+            "score": 0.511307,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5113067626953162
+          },
+          {
+            "id": "f01",
+            "score": 0.504064,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5040644106826546
+          },
+          {
+            "id": "f03",
+            "score": 0.487994,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48799377751387585
+          },
+          {
+            "id": "f06",
+            "score": 0.481027,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48102665060599825
+          },
+          {
+            "id": "f07",
+            "score": 0.475023,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4750227078754836
+          },
+          {
+            "id": "f04",
+            "score": 0.474543,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.47454252990826873
+          },
+          {
+            "id": "f18",
+            "score": 0.459721,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45972064377542554
+          },
+          {
+            "id": "f05",
+            "score": 0.448433,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44843337247172843
+          },
+          {
+            "id": "f12",
+            "score": 0.44671,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4467104109102251
+          },
+          {
+            "id": "f19",
+            "score": 0.439008,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4390080905551864
+          },
+          {
+            "id": "f22",
+            "score": 0.424203,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4242026553033207
+          },
+          {
+            "id": "f20",
+            "score": 0.418161,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41816114133116344
+          },
+          {
+            "id": "f09",
+            "score": 0.40949,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.409490214081369
+          },
+          {
+            "id": "f16",
+            "score": 0.385716,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3857155808379906
+          },
+          {
+            "id": "f17",
+            "score": 0.379063,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3790630174241658
+          },
+          {
+            "id": "f15",
+            "score": 0.367997,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36799742364914134
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f10",
+          "f11",
+          "f02",
+          "f14",
+          "f21"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f10",
+            "score": 0.827569,
+            "skill_coverage": 1.0,
+            "fulltext": 0.6666666666666666,
+            "vector": 0.6474520774214233
+          },
+          {
+            "id": "f11",
+            "score": 0.507278,
+            "skill_coverage": 0.5,
+            "fulltext": 0.3333333333333333,
+            "vector": 0.6353719830513046
+          },
+          {
+            "id": "f02",
+            "score": 0.176945,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5898166191796518
+          },
+          {
+            "id": "f14",
+            "score": 0.156099,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5203286850354488
+          },
+          {
+            "id": "f21",
+            "score": 0.153392,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5113067626953162
+          },
+          {
+            "id": "f01",
+            "score": 0.151219,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5040644106826546
+          },
+          {
+            "id": "f03",
+            "score": 0.146398,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48799377751387585
+          },
+          {
+            "id": "f06",
+            "score": 0.144308,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48102665060599825
+          },
+          {
+            "id": "f07",
+            "score": 0.142507,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4750227078754836
+          },
+          {
+            "id": "f04",
+            "score": 0.142363,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.47454252990826873
+          },
+          {
+            "id": "f18",
+            "score": 0.137916,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45972064377542554
+          },
+          {
+            "id": "f05",
+            "score": 0.13453,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44843337247172843
+          },
+          {
+            "id": "f12",
+            "score": 0.134013,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4467104109102251
+          },
+          {
+            "id": "f19",
+            "score": 0.131702,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4390080905551864
+          },
+          {
+            "id": "f22",
+            "score": 0.127261,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4242026553033207
+          },
+          {
+            "id": "f20",
+            "score": 0.125448,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41816114133116344
+          },
+          {
+            "id": "f09",
+            "score": 0.122847,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.409490214081369
+          },
+          {
+            "id": "f16",
+            "score": 0.115715,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3857155808379906
+          },
+          {
+            "id": "f17",
+            "score": 0.113719,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3790630174241658
+          },
+          {
+            "id": "f15",
+            "score": 0.110399,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.36799742364914134
+          }
+        ]
+      }
+    },
+    {
+      "id": "q06",
+      "terms": [
+        "PostgreSQL",
+        "灾备恢复"
+      ],
+      "required_skill_terms": [
+        "PostgreSQL"
+      ],
+      "query_text": "数据库备份恢复 PostgreSQL 灾备恢复演练 PostgreSQL 灾备恢复",
+      "gold_ids": [
+        "f12",
+        "f13"
+      ],
+      "keyword_candidate_count": 1,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f12"
+        ],
+        "relevant_count": 2,
+        "hits": 1,
+        "recall_at_5": 0.5,
+        "precision_at_5": 0.2,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 0.5,
+        "recall_tie_upper": 0.5,
+        "ranking": [
+          {
+            "id": "f12",
+            "score": 0.6,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f12",
+          "f06",
+          "f07",
+          "f04",
+          "f13"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f12",
+            "score": 0.734803,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.7348030367611041
+          },
+          {
+            "id": "f06",
+            "score": 0.544946,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.544946161213747
+          },
+          {
+            "id": "f07",
+            "score": 0.534642,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5346423027558987
+          },
+          {
+            "id": "f04",
+            "score": 0.530721,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.530720977144184
+          },
+          {
+            "id": "f13",
+            "score": 0.525537,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5255367442645592
+          },
+          {
+            "id": "f03",
+            "score": 0.512644,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5126443795773766
+          },
+          {
+            "id": "f15",
+            "score": 0.489379,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48937866218344417
+          },
+          {
+            "id": "f16",
+            "score": 0.483397,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4833967993618974
+          },
+          {
+            "id": "f02",
+            "score": 0.477517,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.47751689225233884
+          },
+          {
+            "id": "f08",
+            "score": 0.452351,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45235085771376826
+          },
+          {
+            "id": "f01",
+            "score": 0.448772,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44877228446172057
+          },
+          {
+            "id": "f11",
+            "score": 0.444748,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4447475075721772
+          },
+          {
+            "id": "f10",
+            "score": 0.441621,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4416211878287092
+          },
+          {
+            "id": "f05",
+            "score": 0.437067,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43706709521609055
+          },
+          {
+            "id": "f14",
+            "score": 0.421041,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42104052242516077
+          },
+          {
+            "id": "f17",
+            "score": 0.387965,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3879654176255818
+          },
+          {
+            "id": "f09",
+            "score": 0.370817,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.37081705853634084
+          },
+          {
+            "id": "f18",
+            "score": 0.359912,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3599120163969991
+          },
+          {
+            "id": "f20",
+            "score": 0.353112,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3531116141941677
+          },
+          {
+            "id": "f21",
+            "score": 0.319757,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3197571337223075
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f12",
+          "f06",
+          "f07",
+          "f04",
+          "f13"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f12",
+            "score": 0.820441,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.7348030367611041
+          },
+          {
+            "id": "f06",
+            "score": 0.163484,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.544946161213747
+          },
+          {
+            "id": "f07",
+            "score": 0.160393,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5346423027558987
+          },
+          {
+            "id": "f04",
+            "score": 0.159216,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.530720977144184
+          },
+          {
+            "id": "f13",
+            "score": 0.157661,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5255367442645592
+          },
+          {
+            "id": "f03",
+            "score": 0.153793,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5126443795773766
+          },
+          {
+            "id": "f15",
+            "score": 0.146814,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48937866218344417
+          },
+          {
+            "id": "f16",
+            "score": 0.145019,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4833967993618974
+          },
+          {
+            "id": "f02",
+            "score": 0.143255,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.47751689225233884
+          },
+          {
+            "id": "f08",
+            "score": 0.135705,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45235085771376826
+          },
+          {
+            "id": "f01",
+            "score": 0.134632,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44877228446172057
+          },
+          {
+            "id": "f11",
+            "score": 0.133424,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4447475075721772
+          },
+          {
+            "id": "f10",
+            "score": 0.132486,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4416211878287092
+          },
+          {
+            "id": "f05",
+            "score": 0.13112,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.43706709521609055
+          },
+          {
+            "id": "f14",
+            "score": 0.126312,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42104052242516077
+          },
+          {
+            "id": "f17",
+            "score": 0.11639,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3879654176255818
+          },
+          {
+            "id": "f09",
+            "score": 0.111245,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.37081705853634084
+          },
+          {
+            "id": "f18",
+            "score": 0.107974,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3599120163969991
+          },
+          {
+            "id": "f20",
+            "score": 0.105933,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3531116141941677
+          },
+          {
+            "id": "f21",
+            "score": 0.095927,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3197571337223075
+          }
+        ]
+      }
+    },
+    {
+      "id": "q07",
+      "terms": [
+        "JUnit",
+        "回归测试"
+      ],
+      "required_skill_terms": [
+        "JUnit"
+      ],
+      "query_text": "自动化质量开发 JUnit 故障回归测试 JUnit 回归测试",
+      "gold_ids": [
+        "f14",
+        "f15"
+      ],
+      "keyword_candidate_count": 1,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f14"
+        ],
+        "relevant_count": 2,
+        "hits": 1,
+        "recall_at_5": 0.5,
+        "precision_at_5": 0.2,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 0.5,
+        "recall_tie_upper": 0.5,
+        "ranking": [
+          {
+            "id": "f14",
+            "score": 0.6,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f14",
+          "f15",
+          "f13",
+          "f04",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f14",
+            "score": 0.663585,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6635847487202137
+          },
+          {
+            "id": "f15",
+            "score": 0.603347,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6033474027112925
+          },
+          {
+            "id": "f13",
+            "score": 0.496165,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4961652307559621
+          },
+          {
+            "id": "f04",
+            "score": 0.493085,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49308542886631
+          },
+          {
+            "id": "f02",
+            "score": 0.474655,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4746548690004705
+          },
+          {
+            "id": "f07",
+            "score": 0.466209,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.46620919112481474
+          },
+          {
+            "id": "f11",
+            "score": 0.459804,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45980362234744054
+          },
+          {
+            "id": "f01",
+            "score": 0.452723,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4527228311515701
+          },
+          {
+            "id": "f18",
+            "score": 0.452316,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4523157910202682
+          },
+          {
+            "id": "f09",
+            "score": 0.450496,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4504956796322206
+          },
+          {
+            "id": "f16",
+            "score": 0.449619,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4496185913568318
+          },
+          {
+            "id": "f06",
+            "score": 0.442523,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4425230158127256
+          },
+          {
+            "id": "f17",
+            "score": 0.430186,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4301864931042939
+          },
+          {
+            "id": "f08",
+            "score": 0.428346,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42834628904897853
+          },
+          {
+            "id": "f03",
+            "score": 0.423743,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4237426347655845
+          },
+          {
+            "id": "f12",
+            "score": 0.420777,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42077655854155316
+          },
+          {
+            "id": "f20",
+            "score": 0.401419,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4014187396418297
+          },
+          {
+            "id": "f05",
+            "score": 0.395145,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3951445041639956
+          },
+          {
+            "id": "f10",
+            "score": 0.391677,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3916769740485244
+          },
+          {
+            "id": "f21",
+            "score": 0.375441,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3754409291244385
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f14",
+          "f15",
+          "f13",
+          "f04",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f14",
+            "score": 0.799075,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.6635847487202137
+          },
+          {
+            "id": "f15",
+            "score": 0.181004,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.6033474027112925
+          },
+          {
+            "id": "f13",
+            "score": 0.14885,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4961652307559621
+          },
+          {
+            "id": "f04",
+            "score": 0.147926,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.49308542886631
+          },
+          {
+            "id": "f02",
+            "score": 0.142396,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4746548690004705
+          },
+          {
+            "id": "f07",
+            "score": 0.139863,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.46620919112481474
+          },
+          {
+            "id": "f11",
+            "score": 0.137941,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45980362234744054
+          },
+          {
+            "id": "f01",
+            "score": 0.135817,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4527228311515701
+          },
+          {
+            "id": "f18",
+            "score": 0.135695,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4523157910202682
+          },
+          {
+            "id": "f09",
+            "score": 0.135149,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4504956796322206
+          },
+          {
+            "id": "f16",
+            "score": 0.134886,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4496185913568318
+          },
+          {
+            "id": "f06",
+            "score": 0.132757,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4425230158127256
+          },
+          {
+            "id": "f17",
+            "score": 0.129056,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4301864931042939
+          },
+          {
+            "id": "f08",
+            "score": 0.128504,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42834628904897853
+          },
+          {
+            "id": "f03",
+            "score": 0.127123,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4237426347655845
+          },
+          {
+            "id": "f12",
+            "score": 0.126233,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42077655854155316
+          },
+          {
+            "id": "f20",
+            "score": 0.120426,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4014187396418297
+          },
+          {
+            "id": "f05",
+            "score": 0.118543,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3951445041639956
+          },
+          {
+            "id": "f10",
+            "score": 0.117503,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3916769740485244
+          },
+          {
+            "id": "f21",
+            "score": 0.112632,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.3754409291244385
+          }
+        ]
+      }
+    },
+    {
+      "id": "q08",
+      "terms": [
+        "Kafka",
+        "去重"
+      ],
+      "required_skill_terms": [
+        "Kafka"
+      ],
+      "query_text": "消息可靠性开发 Kafka 消息失败重试与去重 Kafka 去重",
+      "gold_ids": [
+        "f16",
+        "f17"
+      ],
+      "keyword_candidate_count": 2,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [
+          "f16",
+          "f17"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f16",
+            "score": 0.6,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.0
+          },
+          {
+            "id": "f17",
+            "score": 0.1,
+            "skill_coverage": 0.0,
+            "fulltext": 0.5,
+            "vector": 0.0
+          }
+        ]
+      },
+      "vector_only": {
+        "top_ids": [
+          "f16",
+          "f06",
+          "f07",
+          "f02",
+          "f17"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f16",
+            "score": 0.753718,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.7537178993225098
+          },
+          {
+            "id": "f06",
+            "score": 0.555032,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5550316572189331
+          },
+          {
+            "id": "f07",
+            "score": 0.532971,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5329711397920718
+          },
+          {
+            "id": "f02",
+            "score": 0.506795,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5067946608785006
+          },
+          {
+            "id": "f17",
+            "score": 0.488219,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.48821935057640076
+          },
+          {
+            "id": "f10",
+            "score": 0.478552,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4785522520542145
+          },
+          {
+            "id": "f04",
+            "score": 0.473072,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.473072350025177
+          },
+          {
+            "id": "f01",
+            "score": 0.468759,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4687594175338745
+          },
+          {
+            "id": "f08",
+            "score": 0.454401,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45440131425857544
+          },
+          {
+            "id": "f12",
+            "score": 0.45347,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45347005128860474
+          },
+          {
+            "id": "f11",
+            "score": 0.446718,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44671782533632753
+          },
+          {
+            "id": "f03",
+            "score": 0.439613,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4396130442619324
+          },
+          {
+            "id": "f05",
+            "score": 0.439035,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4390348494052887
+          },
+          {
+            "id": "f14",
+            "score": 0.421733,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4217326170722432
+          },
+          {
+            "id": "f18",
+            "score": 0.41929,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41928985714912415
+          },
+          {
+            "id": "f15",
+            "score": 0.417884,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41788414610122837
+          },
+          {
+            "id": "f13",
+            "score": 0.417431,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4174310564994812
+          },
+          {
+            "id": "f09",
+            "score": 0.41739,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4173903861772583
+          },
+          {
+            "id": "f22",
+            "score": 0.408059,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40805938839912415
+          },
+          {
+            "id": "f20",
+            "score": 0.407109,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4071087958547116
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f16",
+          "f17",
+          "f06",
+          "f07",
+          "f02"
+        ],
+        "relevant_count": 2,
+        "hits": 2,
+        "recall_at_5": 1.0,
+        "precision_at_5": 0.4,
+        "tie_at_boundary": false,
+        "recall_tie_lower": 1.0,
+        "recall_tie_upper": 1.0,
+        "ranking": [
+          {
+            "id": "f16",
+            "score": 0.826115,
+            "skill_coverage": 1.0,
+            "fulltext": 0.5,
+            "vector": 0.7537178993225098
+          },
+          {
+            "id": "f17",
+            "score": 0.246466,
+            "skill_coverage": 0.0,
+            "fulltext": 0.5,
+            "vector": 0.48821935057640076
+          },
+          {
+            "id": "f06",
+            "score": 0.166509,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5550316572189331
+          },
+          {
+            "id": "f07",
+            "score": 0.159891,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5329711397920718
+          },
+          {
+            "id": "f02",
+            "score": 0.152038,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5067946608785006
+          },
+          {
+            "id": "f10",
+            "score": 0.143566,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4785522520542145
+          },
+          {
+            "id": "f04",
+            "score": 0.141922,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.473072350025177
+          },
+          {
+            "id": "f01",
+            "score": 0.140628,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4687594175338745
+          },
+          {
+            "id": "f08",
+            "score": 0.13632,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45440131425857544
+          },
+          {
+            "id": "f12",
+            "score": 0.136041,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45347005128860474
+          },
+          {
+            "id": "f11",
+            "score": 0.134015,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.44671782533632753
+          },
+          {
+            "id": "f03",
+            "score": 0.131884,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4396130442619324
+          },
+          {
+            "id": "f05",
+            "score": 0.13171,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4390348494052887
+          },
+          {
+            "id": "f14",
+            "score": 0.12652,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4217326170722432
+          },
+          {
+            "id": "f18",
+            "score": 0.125787,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41928985714912415
+          },
+          {
+            "id": "f15",
+            "score": 0.125365,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.41788414610122837
+          },
+          {
+            "id": "f13",
+            "score": 0.125229,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4174310564994812
+          },
+          {
+            "id": "f09",
+            "score": 0.125217,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4173903861772583
+          },
+          {
+            "id": "f22",
+            "score": 0.122418,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40805938839912415
+          },
+          {
+            "id": "f20",
+            "score": 0.122133,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4071087958547116
+          }
+        ]
+      }
+    },
+    {
+      "id": "q09",
+      "terms": [
+        "Rust",
+        "Linux"
+      ],
+      "required_skill_terms": [
+        "Rust",
+        "Linux"
+      ],
+      "query_text": "Rust 系统研发 Rust 和 Linux 内核 Rust Linux",
+      "gold_ids": [],
+      "keyword_candidate_count": 0,
+      "vector_candidate_count": 20,
+      "keyword": {
+        "top_ids": [],
+        "relevant_count": 0,
+        "hits": 0,
+        "recall_at_5": null,
+        "precision_at_5": 0.0,
+        "tie_at_boundary": false,
+        "recall_tie_lower": null,
+        "recall_tie_upper": null,
+        "ranking": []
+      },
+      "vector_only": {
+        "top_ids": [
+          "f01",
+          "f14",
+          "f02",
+          "f21",
+          "f06"
+        ],
+        "relevant_count": 0,
+        "hits": 0,
+        "recall_at_5": null,
+        "precision_at_5": 0.0,
+        "tie_at_boundary": false,
+        "recall_tie_lower": null,
+        "recall_tie_upper": null,
+        "ranking": [
+          {
+            "id": "f01",
+            "score": 0.50881,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5088099534028805
+          },
+          {
+            "id": "f14",
+            "score": 0.493552,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4935519548192058
+          },
+          {
+            "id": "f02",
+            "score": 0.48498,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4849797803187632
+          },
+          {
+            "id": "f21",
+            "score": 0.482821,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4828206896781956
+          },
+          {
+            "id": "f06",
+            "score": 0.476634,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4766341759780549
+          },
+          {
+            "id": "f11",
+            "score": 0.469303,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4693028032779727
+          },
+          {
+            "id": "f22",
+            "score": 0.456412,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45641199014115474
+          },
+          {
+            "id": "f10",
+            "score": 0.451207,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45120689563710203
+          },
+          {
+            "id": "f03",
+            "score": 0.443706,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.443706277387961
+          },
+          {
+            "id": "f05",
+            "score": 0.433153,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4331532160548447
+          },
+          {
+            "id": "f07",
+            "score": 0.429815,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4298152155014494
+          },
+          {
+            "id": "f17",
+            "score": 0.426278,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4262781187130149
+          },
+          {
+            "id": "f12",
+            "score": 0.423264,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42326423983191086
+          },
+          {
+            "id": "f20",
+            "score": 0.420431,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42043133317138914
+          },
+          {
+            "id": "f04",
+            "score": 0.413793,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4137933007601924
+          },
+          {
+            "id": "f18",
+            "score": 0.411839,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4118394010162718
+          },
+          {
+            "id": "f13",
+            "score": 0.408716,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4087158197929974
+          },
+          {
+            "id": "f19",
+            "score": 0.407737,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40773729039804474
+          },
+          {
+            "id": "f15",
+            "score": 0.40552,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4055201821899197
+          },
+          {
+            "id": "f09",
+            "score": 0.403639,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40363855892922484
+          }
+        ]
+      },
+      "hybrid": {
+        "top_ids": [
+          "f01",
+          "f14",
+          "f02",
+          "f21",
+          "f06"
+        ],
+        "relevant_count": 0,
+        "hits": 0,
+        "recall_at_5": null,
+        "precision_at_5": 0.0,
+        "tie_at_boundary": false,
+        "recall_tie_lower": null,
+        "recall_tie_upper": null,
+        "ranking": [
+          {
+            "id": "f01",
+            "score": 0.152643,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.5088099534028805
+          },
+          {
+            "id": "f14",
+            "score": 0.148066,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4935519548192058
+          },
+          {
+            "id": "f02",
+            "score": 0.145494,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4849797803187632
+          },
+          {
+            "id": "f21",
+            "score": 0.144846,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4828206896781956
+          },
+          {
+            "id": "f06",
+            "score": 0.14299,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4766341759780549
+          },
+          {
+            "id": "f11",
+            "score": 0.140791,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4693028032779727
+          },
+          {
+            "id": "f22",
+            "score": 0.136924,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45641199014115474
+          },
+          {
+            "id": "f10",
+            "score": 0.135362,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.45120689563710203
+          },
+          {
+            "id": "f03",
+            "score": 0.133112,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.443706277387961
+          },
+          {
+            "id": "f05",
+            "score": 0.129946,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4331532160548447
+          },
+          {
+            "id": "f07",
+            "score": 0.128945,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4298152155014494
+          },
+          {
+            "id": "f17",
+            "score": 0.127883,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4262781187130149
+          },
+          {
+            "id": "f12",
+            "score": 0.126979,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42326423983191086
+          },
+          {
+            "id": "f20",
+            "score": 0.126129,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.42043133317138914
+          },
+          {
+            "id": "f04",
+            "score": 0.124138,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4137933007601924
+          },
+          {
+            "id": "f18",
+            "score": 0.123552,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4118394010162718
+          },
+          {
+            "id": "f13",
+            "score": 0.122615,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4087158197929974
+          },
+          {
+            "id": "f19",
+            "score": 0.122321,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40773729039804474
+          },
+          {
+            "id": "f15",
+            "score": 0.121656,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.4055201821899197
+          },
+          {
+            "id": "f09",
+            "score": 0.121092,
+            "skill_coverage": 0.0,
+            "fulltext": 0.0,
+            "vector": 0.40363855892922484
+          }
+        ]
+      }
+    }
+  ],
+  "limits": [
+    "Authored synthetic relevance labels are not real recruitment evidence.",
+    "Manually parsed queries isolate retrieval from JD parsing quality.",
+    "Relevance does not prove all job requirements are met.",
+    "Existing ranking ties are reported with possible recall bounds."
+  ],
+  "summary": {
+    "keyword": {
+      "queries_with_gold": 8,
+      "macro_recall_at_5": 0.6875,
+      "macro_tie_lower": 0.6875,
+      "macro_tie_upper": 0.6875
+    },
+    "vector_only": {
+      "queries_with_gold": 8,
+      "macro_recall_at_5": 1.0,
+      "macro_tie_lower": 1.0,
+      "macro_tie_upper": 1.0
+    },
+    "hybrid": {
+      "queries_with_gold": 8,
+      "macro_recall_at_5": 1.0,
+      "macro_tie_lower": 1.0,
+      "macro_tie_upper": 1.0
+    }
+  }
+}

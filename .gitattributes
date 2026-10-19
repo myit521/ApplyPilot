@@ -2,3 +2,5 @@
 tests/fixtures/*.json text eol=lf
 # Historical reports were written on Windows and annotated with CRLF hashes.
 docs/evaluation/*.json text eol=crlf
+# The archived harness is identified by its exact SHA-256, including newlines.
+docs/evaluation/t27-live-harness.txt -text

@@ -1,0 +1,41 @@
+{
+  "at_utc": "2026-10-19T08:48:14.4911867Z",
+  "code_commit": "4ae17c1772345479c98a60facb7983a42ea57ed6",
+  "base_commit": "56ace869c09e5ea5118896705cb6086b8b791b2e",
+  "project": "applypilot-t26-check",
+  "image_id": "sha256:8d54d5d3ecb389877c1f82f98df63118d64e8fe5c6001b95f7f4df3adb59631a",
+  "app_ports": {
+    "8000/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "18026"
+      }
+    ]
+  },
+  "db_ports": {
+    "5432/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "15426"
+      }
+    ]
+  },
+  "application_model_key_configured": false,
+  "application_model_calls": 0,
+  "live_status": 200,
+  "ready_after_restart": 200,
+  "job_id": 1,
+  "synthetic_job_retained": true,
+  "parse_without_key_status": 503,
+  "parse_without_key_detail": "模型尚未配置，职位已保留",
+  "full_tests": "318 passed, 3 warnings in 153.68s (0:02:33)",
+  "limits": [
+    "Synthetic job intake and restart only; no real model generation in Compose smoke.",
+    "Browser workflow uses a clearly documented model test double in the full suite.",
+    "This does not verify public deployment or recruiting-site compatibility."
+  ],
+  "cleanup": {
+    "remaining_containers": 0,
+    "remaining_volumes": 0
+  }
+}

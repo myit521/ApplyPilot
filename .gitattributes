@@ -1,0 +1,4 @@
+# Preserve the bytes used by the existing frozen evidence hashes.
+tests/fixtures/*.json text eol=lf
+# Historical reports were written on Windows and annotated with CRLF hashes.
+docs/evaluation/*.json text eol=crlf

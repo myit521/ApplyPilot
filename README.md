@@ -58,6 +58,8 @@ T29 为新任务持久化入队 JD 快照，复用当时已有且通过当前门
 
 T30 为默认 PostgreSQL checkpoint 显式登记应用模型类型并关闭 pickle fallback。已知旧格式的恢复和未知构造器阻止分别验证；锁定库可能将受阻对象降为原始数据，因此不保证整条 checkpoint 拒绝，也不替代数据库访问控制，详见 [T30](docs/t30-execution.md)。
 
+T31 为默认模型增加调用日志，关联任务、worker 执行次数与图节点，区分供应商已报告、缺失、无效和不可得用量；超时不记成零费用。README 和镜像启动配置会输出事件；日志可能丢失，不是持久化账本或总预算，详见 [T31](docs/t31-execution.md)。
+
 简历校验已修复数字子串误判、技能子串扩大及复核解析失败放行；空简历和空白表述不能进入审批。审批保存与 checkpoint 推进分为两个阶段；冻结成功但 checkpoint 暂不可用时仍由审核页手动重试对账。T8 只自动恢复工作流执行任务，限单应用实例，不承诺模型调用恰好一次或多实例恢复。数字/技能规则及语义复核仍无法证明经历真实或语义判断永不出错，最终内容须由用户核对；不能宣称「保证不编造」或「生产级」。职位匹配报告的状态基于可见的关键词规则；T25 已修复候选召回的英文子串和反向技能标签误命中；中文子串和向量仍可能产生噪声，候选不能单独成为支持证据。详见[审计报告](docs/audit-2026-09-29.md)、[T5 执行记录](docs/t5-execution.md)和[T8 执行记录](docs/t8-execution.md)。
 
 ## 目标使用流程
@@ -82,7 +84,7 @@ $env:PYTHONPATH = 'src'
 python -m applypilot.db
 $env:DEEPSEEK_API_KEY = '<替换为自己的密钥，仅保存在本地环境>'
 $env:DEEPSEEK_MODEL = 'deepseek-chat'
-python -m uvicorn applypilot.api:app --app-dir src --host 127.0.0.1 --port 8000
+python -m uvicorn applypilot.api:app --app-dir src --host 127.0.0.1 --port 8000 --log-config src/applypilot/logging.json
 ```
 
 页面位于 `http://127.0.0.1:8000`，接口文档位于 `/docs`。`/profile` 可录入联系资料、导入/新增/编辑/确认/停用事实。修改重置为草稿，确认必须针对当前修订；教育信息在教育事实中维护。`/jobs` 可录入职位、查看分页历史和 JD 原文；保存不调用模型，点击解析才会发送 JD 到模型服务。解析后先生成匹配报告并核对证据，才可从页面启动简历草稿；工作流进入人工审批后由 `/review/{run_id}` 编辑、校验和批准。`/applications` 可记录自行投递的结果，只有批准版本可选；接口写入需 `Idempotency-Key`。实际接口以 `/docs` 为准。
@@ -123,6 +125,7 @@ python -m pytest -q
 | [T28 隐私历史与旧入口](docs/t28-execution.md) | 源码样例匿名化、公开分支历史复查与未清除边界 |
 | [T29 输入快照与单次边界](docs/t29-execution.md) | 去除任务重复解析、批准输入一致性、模型截断拒绝 |
 | [T30 checkpoint 类型登记](docs/t30-execution.md) | 精确类型白名单、旧格式恢复与构造器阻止边界 |
+| [T31 模型调用观测](docs/t31-execution.md) | 请求关联、重试/节点用量、未知成本与日志边界 |
 | [T5 执行记录](docs/t5-execution.md) | 数字/技能边界、语义复核与失败门禁 |
 | [T6 执行记录](docs/t6-execution.md) | 反馈再生成、文本编辑、修订与差异 |
 | [T7 执行记录](docs/t7-execution.md) | 原子批准、冻结快照、checkpoint 对账与恢复 UI |

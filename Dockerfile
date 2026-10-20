@@ -29,4 +29,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=10 \
     CMD python -c "import sys, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4); sys.exit(0 if r.status == 200 else 1)"
 
 # 每次启动先执行幂等迁移（新库和已有数据卷都适用），迁移失败则不启动服务。
-CMD ["sh", "-c", "python -m applypilot.db && exec python -m uvicorn applypilot.api:app --app-dir /app/src --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python -m applypilot.db && exec python -m uvicorn applypilot.api:app --app-dir /app/src --host 0.0.0.0 --port 8000 --log-config /app/src/applypilot/logging.json"]

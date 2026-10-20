@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from . import db, task_repo
 from .model_adapter import RetryableModelError
+from .model_usage import model_call_scope
 from .workflow import WorkflowCancelled
 
 log = logging.getLogger(__name__)
@@ -106,7 +107,9 @@ class TaskWorker:
     def _process(self, task: dict) -> None:
         started = time.monotonic()
         try:
-            status = self.execute(task)
+            with model_call_scope(run_id=task["run_id"], job_id=task["job_id"],
+                                  attempt_count=task["attempt_count"]):
+                status = self.execute(task)
             if self.stopping:
                 return  # A new process will reclaim this running task.
             error = "workflow_validation_failed" if status == "failed" else ""

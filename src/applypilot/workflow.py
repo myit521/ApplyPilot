@@ -21,10 +21,12 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
+from langchain_core.runnables import RunnableConfig
 
 from .generator import generate_resume
 from .jd_parser import JDParseError, _parse_checked, parse_jd
 from .model_adapter import ModelAdapter
+from .model_usage import model_call_scope
 from .retrieval import ScoredFact
 from .schemas import ErrorCode, Fact, JobRequirements, ResumeSections, ValidationError
 from .semantic_check import semantic_check
@@ -81,7 +83,7 @@ def build_graph(
         if cancel_requested is not None and cancel_requested():
             raise WorkflowCancelled()
 
-    def node_parse_jd(state: WorkflowState) -> dict:
+    def node_parse_jd(state: WorkflowState, config: RunnableConfig) -> dict:
         check_cancelled()
         try:
             snapshot = state.get("job_snapshot")
@@ -92,7 +94,9 @@ def build_graph(
                     json.dumps(snapshot["parsed"], ensure_ascii=False), state["jd_text"]
                 )
             else:
-                requirements = parse_jd(state["jd_text"], adapter)
+                with model_call_scope(run_id=config["configurable"].get("thread_id"),
+                                      job_id=state.get("job_id"), step="parse_jd"):
+                    requirements = parse_jd(state["jd_text"], adapter)
         except JDParseError as e:
             return {"status": WorkflowStatus.FAILED, "error": str(e)}
         check_cancelled()
@@ -107,7 +111,7 @@ def build_graph(
         check_cancelled()
         return {"retrieved_facts": facts, "status": WorkflowStatus.GENERATING_RESUME}
 
-    def node_generate(state: WorkflowState) -> dict:
+    def node_generate(state: WorkflowState, config: RunnableConfig) -> dict:
         check_cancelled()
         errors = state.get("validation_errors", [])
         feedback_items = [state.get("feedback", "").strip()]
@@ -118,9 +122,11 @@ def build_graph(
                 )
             )
         feedback = "\n\n".join(item for item in feedback_items if item)
-        resume = generate_resume(
-            state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
-        )
+        with model_call_scope(run_id=config["configurable"].get("thread_id"),
+                              job_id=state.get("job_id"), step="generate_resume"):
+            resume = generate_resume(
+                state["requirements"], state["retrieved_facts"], adapter, feedback=feedback
+            )
         check_cancelled()
         return {
             "resume": resume,
@@ -130,14 +136,16 @@ def build_graph(
             "status": WorkflowStatus.VALIDATING_FACTS,
         }
 
-    def node_validate(state: WorkflowState) -> dict:
+    def node_validate(state: WorkflowState, config: RunnableConfig) -> dict:
         check_cancelled()
         resume = state["resume"]
         facts = state["retrieved_facts"]
         errors = validate_sections(resume, facts)
         if not errors:
             # 确定性规则通过后，模型复核语义越界（第 8.4 节后段）
-            errors = semantic_check(resume.all_claims(), facts, adapter)
+            with model_call_scope(run_id=config["configurable"].get("thread_id"),
+                                  job_id=state.get("job_id"), step="semantic_review"):
+                errors = semantic_check(resume.all_claims(), facts, adapter)
         check_cancelled()
         if any(error.code == ErrorCode.SEMANTIC_REVIEW_UNAVAILABLE for error in errors):
             return {

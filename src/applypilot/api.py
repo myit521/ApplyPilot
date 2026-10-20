@@ -28,6 +28,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, ValidationError as PydanticValidationError
 
 from . import application_repo, approvals_repo, db, facts_repo, search, task_repo
+from .checkpoint_serde import checkpoint_serializer
 from .matching import build_match_report
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -242,7 +243,7 @@ def create_app(
                         row_factory=dict_row, connect_timeout=3,
                         options="-c statement_timeout=5000",
                     )
-                    candidate = PostgresSaver(owned_connection)
+                    candidate = PostgresSaver(owned_connection, serde=checkpoint_serializer())
                     candidate.setup()
                     checkpointer = candidate
                 except psycopg.Error as exc:

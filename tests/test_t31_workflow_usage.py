@@ -5,6 +5,7 @@ import logging
 import uuid
 
 import httpx
+import pytest
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
@@ -14,9 +15,10 @@ from applypilot.task_worker import TaskWorker
 from applypilot.workflow import WorkflowStatus, build_graph
 
 
-def test_worker_retry_and_review_calls_keep_distinct_request_identity(monkeypatch, caplog):
+@pytest.mark.parametrize("task_prefix", [False, True])
+def test_worker_retry_and_review_calls_keep_distinct_request_identity(monkeypatch, caplog, task_prefix):
     caplog.set_level(logging.INFO, logger="applypilot.model_usage")
-    run_id = str(uuid.uuid4())
+    run_id = "wf_" + uuid.uuid4().hex if task_prefix else str(uuid.uuid4())
     fact = Fact(id="t31_synthetic", status="confirmed", fact_type=FactType.PROJECT,
                 source_name="合成项目", content="参与 Java 开发", skills=["Java"])
     generation_calls = []
@@ -69,14 +71,14 @@ def test_worker_retry_and_review_calls_keep_distinct_request_identity(monkeypatc
     assert all(e["usage_status"] == "reported" for i, e in enumerate(finished) if i != 1)
 
 
-def test_invalid_context_tags_are_not_written_to_logs(monkeypatch, caplog):
+@pytest.mark.parametrize("invalid_run_id", ["private-person-name", "wf_private-person-name"])
+def test_invalid_context_tags_are_not_written_to_logs(monkeypatch, caplog, invalid_run_id):
     from applypilot.model_usage import model_call_scope
 
     caplog.set_level(logging.INFO, logger="applypilot.model_usage")
     monkeypatch.setattr(httpx, "post", lambda *a, **k: httpx.Response(503))
     from applypilot.model_adapter import RetryableModelError
-    import pytest
-    with model_call_scope(run_id="private-person-name", job_id=True,
+    with model_call_scope(run_id=invalid_run_id, job_id=True,
                           attempt_count=-1, step="private-free-text"):
         with pytest.raises(RetryableModelError):
             DeepSeekAdapter(api_key="test").complete("s", "u")

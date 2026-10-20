@@ -30,7 +30,7 @@ python -m pytest -p no:cacheprovider -q tests/test_t13_browser_rehearsal.py
 python -m pytest -p no:cacheprovider -q --tb=short
 ```
 
-第一条复现 T13 的本项目浏览器流程，使用临时数据库、合成资料和模型替身；需安装 Playwright Python 包及本机 Edge，缺少依赖时测试会跳过，不能当作演示通过。具体检查见测试和 [T13](t13-execution.md)。替身由测试注入，不是运行时配置开关。T31 完整套件为 396 项通过，不验证真实招聘网站，也不验证真实生成质量。
+第一条为 T32 增强的 T13 浏览器流程，使用默认 DeepSeek 适配器、供应商 HTTP 替身、临时数据库和合成资料；覆盖退回、编辑重校验、批准、DOCX 内容及人工记录，并核对六次调用日志。需安装 Playwright Python 包及本机 Edge，缺少依赖时跳过不能当作演示通过。详见 [T32](t32-execution.md)；合成配置和 HTTP 替换只在测试中生效，不是运行时开关。T32 完整套件为 398 项通过，不验证真实招聘网站或真实生成质量。
 
 ## 人工演示真实模型
 

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import json
 import logging
+import re
 import uuid
 
 log = logging.getLogger(__name__)
@@ -16,7 +17,11 @@ def model_call_scope(*, run_id=None, job_id=None, attempt_count=None, step=None)
     context = dict(_context.get() or {})
     if run_id is not None:
         try:
-            uuid.UUID(run_id)
+            # Task admission uses wf_ + UUID hex; never allow arbitrary prefixed text.
+            candidate = run_id
+            if isinstance(run_id, str) and re.fullmatch(r"wf_[0-9a-f]{32}", run_id):
+                candidate = run_id[3:]
+            uuid.UUID(candidate)
             context["run_id"] = run_id
         except (ValueError, TypeError, AttributeError):
             context["run_id"] = None

@@ -4,7 +4,9 @@
 
 ## 交付版本
 
-T26 当时基于代码 `4ae17c1`，默认分支为 `56ace86`（T6），开发链领先 42 个提交、无分叉。T28 隐私清理后这些历史 SHA 已重写；旧证据保留原运行标识，当前头见 [T28 汇总](evaluation/t28-privacy-audit.json)。main 仍只到 T6 功能，T7 以后的能力在开发链；PR #1 保持草稿，不自动合并。
+当前代码验收基准为 `9d34e12`（T32，2026-10-20），开发分支为 `codex/t26-delivery-integration`。本轮整理开始时，[PR #1](https://github.com/myit521/ApplyPilot/pull/1) 的 head 为该提交；后续仅文档提交以 PR 当前 head 为准。PR 保持草稿、未合并，base 为 `19115a7`，main 功能仍到 T6。不要把旧的分支领先提交数当作当前状态。
+
+最近一次本机完整回归为 398 passed、3 warnings；T32 托管[离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/39357963363) 已成功。它们来自 T32 的实际运行，本轮仅整理文档、不重复宣称运行测试。T26/T28 的历史 SHA 与公开可达历史清理范围保留在原记录和 [T28 汇总](evaluation/t28-privacy-audit.json)，历史记录不覆盖改写。
 
 ## 无密钥启动检查
 
@@ -31,6 +33,40 @@ python -m pytest -p no:cacheprovider -q --tb=short
 ```
 
 第一条为 T32 增强的 T13 浏览器流程，使用默认 DeepSeek 适配器、供应商 HTTP 替身、临时数据库和合成资料；覆盖退回、编辑重校验、批准、DOCX 内容及人工记录，并核对六次调用日志。需安装 Playwright Python 包及本机 Edge，缺少依赖时跳过不能当作演示通过。详见 [T32](t32-execution.md)；合成配置和 HTTP 替换只在测试中生效，不是运行时开关。T32 完整套件为 398 项通过，不验证真实招聘网站或真实生成质量。
+
+这是无头浏览器自动验收：测试结束时临时服务和数据库退出。不能在结束后访问临时端口，也不把测试替身称为常驻演示模式。无需向测试提供个人简历或真实模型密钥。
+
+需要本机合成截图与调用摘要时，在项目根目录执行以下可选命令；不将产物提交到公开仓库：
+
+```powershell
+$previousArtifactDir = [Environment]::GetEnvironmentVariable('APPLYPILOT_DEMO_ARTIFACT_DIR', 'Process')
+try {
+    $env:APPLYPILOT_DEMO_ARTIFACT_DIR = Join-Path (Get-Location) '.pytest_cache/demo'
+    python -m pytest -p no:cacheprovider -q tests/test_t13_browser_rehearsal.py
+    if ($LASTEXITCODE -ne 0) { throw '浏览器验收未通过，请保留实际错误。' }
+} finally {
+    if ($null -eq $previousArtifactDir) {
+        Remove-Item Env:APPLYPILOT_DEMO_ARTIFACT_DIR -ErrorAction SilentlyContinue
+    } else {
+        $env:APPLYPILOT_DEMO_ARTIFACT_DIR = $previousArtifactDir
+    }
+}
+```
+
+产物为 `.pytest_cache/demo/review.png`、`applications.png` 和 `observation-summary.json`。摘要只保留白名单字段；五次 reported、一次 missing 是设定的合成响应，不能讲成真实 token 消耗或费用。脚本恢复原进程环境，不删除用户文件。
+
+## 八分钟演示讲解顺序
+
+自动验收可展示命令、源码断言与保存的合成截图；人工交互则按下一节启动真实服务与模型。两种方式须先说明，不把自动测试的截图说成真实模型结果。
+
+| 时间 | 展示内容 | 应说明的边界 |
+| --- | --- | --- |
+| 1 分钟 | 确认事实和来源，录入一个合成 JD | 确认是用户声明，不是经历真实性认证 |
+| 1 分钟 | 逐项证据与缺口、JD 入队快照 | 候选及匹配分数不是录用概率 |
+| 2 分钟 | 退回、编辑至修订 3、事实引用与前后差异 | 模型复核可能误判，最终仍须人工核对 |
+| 1 分钟 | 点击批准、查看冻结版本与 DOCX 正文 | 批准前无冻结版，历史不由当前资料补造 |
+| 1 分钟 | 记录 user_reported/unknown | 导出不代表投递，用户自述不代表网站确认 |
+| 2 分钟 | 六次配对日志、wf_ ID 回归、恢复用例 | 替身 usage 不是实际计费，checkpoint 不保证外部请求恰好一次 |
 
 ## 人工演示真实模型
 

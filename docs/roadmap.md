@@ -1,6 +1,24 @@
 # 开发路线与两周 MVP
 
-更新：2026-10-14。T1–T13 已按各自范围实现并留下本地验证记录；T14 的[限额探针](t14-execution.md)、T15 的[合成集真实模型评测](t15-execution.md)、T16 的[具名技术子集核对](t16-execution.md)、T17 的[JD 原子映射](t17-execution.md)、T18 的[新合成 JD 留出样本](t18-execution.md)、T19 的[二选一匹配解释](t19-execution.md)、T20 的[非要求解析门禁](t20-execution.md)、T21 的[检索词边界](t21-execution.md)、T22 的[真实修复评估](t22-execution.md)、T23 的[修复上下文](t23-execution.md)、T24 的[检索评估](t24-execution.md)与 T25 的[词法修复](t25-execution.md)另有记录。此前记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)、[T13](t13-execution.md)。有统计意义的真实岗位模型质量评测仍未完成；公开分支历史中的 5 份简历 DOCX 已移除并核验，但 GitHub 旧对象缓存不能仅靠推送证明清除。现状基线见[审计](audit-2026-09-29.md)。
+更新：2026-10-20。当前代码验收为 `9d34e12` / [T32](t32-execution.md)：本机 398 项通过，托管 CI 仅非 integration 测试已成功。开发分支仍在草稿 PR #1，main 功能到 T6；本轮文档交付见 [T33](t33-execution.md)。
+
+## 当前交付决定
+
+先收敛本机单用户、单应用实例的 MVP 候选，不再默认累加业务功能。资料确认、JD 证据匹配、草稿修改/校验、人工批准、DOCX 和手工结果留痕已有合成主流程证据；事务、恢复和失败边界分别有测试。许可证、真实模型质量和公开部署条件尚未因此解决，不能标为生产发布完成。
+
+| 优先级 | 当前处理方式 | 启动或完成条件 |
+| --- | --- | --- |
+| P0 收尾 | 统一启动、演示、简历与证据入口；修复新发现的可复现缺陷 | 文档与源码/实际运行一致，保留历史和限制，交付检查单可执行 |
+| P1 按使用反馈 | 有代表性的合成/获准样例试用与真实模型核对；必要时再设计持久化账本 | 明确样例、调用范围、用量与错误口径；替身通过不替代真实模型质量证据 |
+| P2 按独立需求 | 认证、多用户、删除、配额、浏览器辅助或网站适配 | 有明确使用/部署需求，单独设计验收；不能由本机验收自动扩展权限 |
+
+没有新缺陷或明确使用反馈时，不为增加任务编号而继续加功能。真实网站提交、验证码绕过、批量骚扰投递不进入计划。Java 求职定位不意味着必须给本项目补转发层或拆微服务。
+
+## 历史两周规划
+
+以下工时、日历和任务表保留原规划用途，不是实际工时统计，也不是全部仍待开发的任务；各阶段是否完成按实际执行记录及上面的当前决定判断。
+
+历史规划与阶段索引（2026-10-14）：T1–T13 已按各自范围实现并留下本地验证记录；T14 的[限额探针](t14-execution.md)、T15 的[合成集真实模型评测](t15-execution.md)、T16 的[具名技术子集核对](t16-execution.md)、T17 的[JD 原子映射](t17-execution.md)、T18 的[新合成 JD 留出样本](t18-execution.md)、T19 的[二选一匹配解释](t19-execution.md)、T20 的[非要求解析门禁](t20-execution.md)、T21 的[检索词边界](t21-execution.md)、T22 的[真实修复评估](t22-execution.md)、T23 的[修复上下文](t23-execution.md)、T24 的[检索评估](t24-execution.md)与 T25 的[词法修复](t25-execution.md)另有记录。此前记录见[执行记录](t1-execution.md)、[T2](t2-execution.md)、[T3](t3-execution.md)、[T4](t4-execution.md)、[T5](t5-execution.md)、[T6](t6-execution.md)、[T7](t7-execution.md)、[T8](t8-execution.md)、[T9](t9-execution.md)、[T10](t10-execution.md)、[T11](t11-execution.md)、[T12](t12-execution.md)、[T13](t13-execution.md)。有统计意义的真实岗位模型质量评测仍未完成；公开分支历史中的 5 份简历 DOCX 已移除并核验，但 GitHub 旧对象缓存不能仅靠推送证明清除。现状基线见[审计](audit-2026-09-29.md)。
 
 ## 范围与容量
 
@@ -83,7 +101,7 @@ S0+S2 都做时，总投入约 **82–86 小时**（含 P0 缓冲），不包含
 
 暂不做验证码绕过、自动提交、批量骚扰投递、通用浏览器 Agent、多 Agent 辩论和无评测支撑的复杂 RAG。
 
-## 两周交付与当前下一项
+## 阶段验收记录与当时下一项
 
 T32（2026-10-20）复用 T13 浏览器彩排，验证默认适配器的合成人工确认链和六次请求日志，修复生产 wf_ 任务 ID 被清空的缺陷，见 [T32](t32-execution.md)。下一步整理交付版本、演示材料及剩余发布条件，先收敛本机 MVP；不默认增加费用账本、微服务或网站自动化功能。
 

@@ -86,6 +86,8 @@ def build_graph(
         try:
             snapshot = state.get("job_snapshot")
             if snapshot is not None and snapshot.get("parsed") is not None:
+                if not isinstance(snapshot["parsed"], dict):
+                    raise JDParseError("已保存的职位解析结构不合法，请重新解析并创建新任务")
                 requirements = _parse_checked(
                     json.dumps(snapshot["parsed"], ensure_ascii=False), state["jd_text"]
                 )

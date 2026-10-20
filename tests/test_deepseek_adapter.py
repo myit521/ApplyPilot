@@ -4,10 +4,9 @@ import httpx
 import pytest
 
 from applypilot.deepseek_adapter import DeepSeekAdapter
-
-MAX_RESPONSE_CHARS = 32768
 from applypilot.model_adapter import ModelError, RetryableModelError
 
+MAX_RESPONSE_CHARS = 32768
 SECRET = "test-key"
 
 

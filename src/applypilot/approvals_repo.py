@@ -176,12 +176,17 @@ def persist_approval(
     job_id: int,
     sections: dict,
     retrieved_facts: list,
+    job_snapshot: dict | None = None,
 ) -> dict:
     cited_ids = _cited_fact_ids(sections)
     retrieved_revisions = _retrieved_revisions(retrieved_facts)
 
     with conn.transaction():
         job = _lock_job(conn, job_id)
+        if job_snapshot is not None:
+            if job_snapshot.get("id") != job_id:
+                raise ApprovalConflict("Workflow job snapshot belongs to another job")
+            job = job_snapshot
         locked_facts = _lock_and_validate_facts(conn, cited_ids, retrieved_revisions)
         fact_snapshots = _load_cited_fact_revisions(conn, cited_ids, locked_facts)
         package = build_approval_package(

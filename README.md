@@ -52,7 +52,9 @@ T24 在[固定合成事实集](docs/t24-execution.md)上使用真实本地 BGE �
 
 T25 修复[关键词词法边界](docs/t25-execution.md)，完整回归 318 项通过。同一冻结集合上的混合 Recall@5 变为 1.0，关键词 Recall 保持 0.6875；已确认的 SQL/PostgreSQL、Java/JavaScript 关键词误命中消失。无相关事实仍可能返回向量候选。
 
-T27 修复 Windows 检出换行造成的冻结证据哈希失败，[托管离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/39227415219)为 **200 passed、118 deselected**。另完成一个合成案例的真实模型 API 流程：解析、生成、复核、主审批准、DOCX 与未知结果留痕，共 4 次请求；使用限额演示适配器、关键词路径，不代表默认适配器预算能力、完整浏览器全链路或真实岗位质量。见 [T27 记录](docs/t27-execution.md)。T28 已清理确认过的源码标识及 21 个公开分支的可达历史，并停用旧冒烟入口；GitHub 旧对象缓存仍未核验。重复解析及默认模型预算仍待处理，PR 保持草稿，见 [T28](docs/t28-execution.md)。
+T27 修复 Windows 检出换行造成的冻结证据哈希失败，[托管离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/39227415219)为 **200 passed、118 deselected**。另完成一个合成案例的真实模型 API 流程：解析、生成、复核、主审批准、DOCX 与未知结果留痕，共 4 次请求；使用限额演示适配器、关键词路径，不代表默认适配器预算能力、完整浏览器全链路或真实岗位质量。见 [T27 记录](docs/t27-execution.md)。T28 已清理确认过的源码标识及 21 个公开分支的可达历史，并停用旧冒烟入口；GitHub 旧对象缓存仍未核验，见 [T28](docs/t28-execution.md)。
+
+T29 为新任务持久化入队 JD 快照，复用当时已有且通过当前门禁的解析，批准版本使用同一输入；旧任务保留明确的兼容边界。默认模型每次请求最多 2048 输出 token、输入合计 64000 字符，并拒绝截断或异常响应。这是单次边界，不是任务/账户总费用配额；PR 仍为草稿。迁移、测试及限制见 [T29](docs/t29-execution.md)。
 
 简历校验已修复数字子串误判、技能子串扩大及复核解析失败放行；空简历和空白表述不能进入审批。审批保存与 checkpoint 推进分为两个阶段；冻结成功但 checkpoint 暂不可用时仍由审核页手动重试对账。T8 只自动恢复工作流执行任务，限单应用实例，不承诺模型调用恰好一次或多实例恢复。数字/技能规则及语义复核仍无法证明经历真实或语义判断永不出错，最终内容须由用户核对；不能宣称「保证不编造」或「生产级」。职位匹配报告的状态基于可见的关键词规则；T25 已修复候选召回的英文子串和反向技能标签误命中；中文子串和向量仍可能产生噪声，候选不能单独成为支持证据。详见[审计报告](docs/audit-2026-09-29.md)、[T5 执行记录](docs/t5-execution.md)和[T8 执行记录](docs/t8-execution.md)。
 
@@ -86,7 +88,7 @@ python -m uvicorn applypilot.api:app --app-dir src --host 127.0.0.1 --port 8000
 已知运行约束：
 
 - Jinja2 已加入直接依赖；导入模块和 create_app 不连接数据库，lifespan 启动阶段初始化 checkpoint 并恢复持久任务。
-- `/health/live` 表示进程存活；`/health/ready` 检查 checkpoint 连接、当前数据库、T9 迁移和必要业务表，但不验证模型密钥、模型下载或生成效果。
+- `/health/live` 表示进程存活；`/health/ready` 检查 checkpoint 连接、当前数据库、截至 006 的迁移和必要业务表，但不验证模型密钥、模型下载或生成效果。
 - checkpoint 初始化失败时存活接口仍可用，就绪和业务接口返回 503；修复依赖后重启。运行中 checkpoint 连接失效会报告未就绪，本阶段不自动重连。
 - 当前代码不会自动读取 `.env`，需设置进程环境变量。
 - 首次向量模型加载可能下载文件，离线使用需事先准备缓存。
@@ -117,6 +119,7 @@ python -m pytest -q
 | [T26 集成交付](docs/t26-execution.md) | 318 项回归、隔离 Compose 验证与默认分支差异 |
 | [T27 CI 与真实模型流程](docs/t27-execution.md) | 冻结字节复现、限额合成演示与主审门禁 |
 | [T28 隐私历史与旧入口](docs/t28-execution.md) | 源码样例匿名化、公开分支历史复查与未清除边界 |
+| [T29 输入快照与单次边界](docs/t29-execution.md) | 去除任务重复解析、批准输入一致性、模型截断拒绝 |
 | [T5 执行记录](docs/t5-execution.md) | 数字/技能边界、语义复核与失败门禁 |
 | [T6 执行记录](docs/t6-execution.md) | 反馈再生成、文本编辑、修订与差异 |
 | [T7 执行记录](docs/t7-execution.md) | 原子批准、冻结快照、checkpoint 对账与恢复 UI |

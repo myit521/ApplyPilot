@@ -14,6 +14,7 @@ PARSING_JD -> RETRIEVING_FACTS -> GENERATING_RESUME -> VALIDATING_FACTS
 from __future__ import annotations
 
 from enum import StrEnum
+import json
 from typing import Callable, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -22,7 +23,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
 from .generator import generate_resume
-from .jd_parser import JDParseError, parse_jd
+from .jd_parser import JDParseError, _parse_checked, parse_jd
 from .model_adapter import ModelAdapter
 from .retrieval import ScoredFact
 from .schemas import ErrorCode, Fact, JobRequirements, ResumeSections, ValidationError
@@ -50,6 +51,7 @@ class WorkflowStatus(StrEnum):
 class WorkflowState(TypedDict, total=False):
     jd_text: str
     job_id: int
+    job_snapshot: dict | None
     requirements: JobRequirements | None
     retrieved_facts: list[Fact]
     resume: ResumeSections
@@ -82,11 +84,20 @@ def build_graph(
     def node_parse_jd(state: WorkflowState) -> dict:
         check_cancelled()
         try:
-            requirements = parse_jd(state["jd_text"], adapter)
+            snapshot = state.get("job_snapshot")
+            if snapshot is not None and snapshot.get("parsed") is not None:
+                requirements = _parse_checked(
+                    json.dumps(snapshot["parsed"], ensure_ascii=False), state["jd_text"]
+                )
+            else:
+                requirements = parse_jd(state["jd_text"], adapter)
         except JDParseError as e:
             return {"status": WorkflowStatus.FAILED, "error": str(e)}
         check_cancelled()
-        return {"requirements": requirements, "status": WorkflowStatus.RETRIEVING_FACTS}
+        result = {"requirements": requirements, "status": WorkflowStatus.RETRIEVING_FACTS}
+        if snapshot is not None:
+            result["job_snapshot"] = {**snapshot, "parsed": requirements.model_dump(mode="json")}
+        return result
 
     def node_retrieve(state: WorkflowState) -> dict:
         check_cancelled()

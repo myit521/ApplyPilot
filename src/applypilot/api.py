@@ -342,9 +342,12 @@ def create_app(
         if cancelled():
             raise WorkflowCancelled()
         with get_conn() as conn:
-            job = conn.execute(
-                "SELECT raw_text FROM jobs WHERE id=%s", (task["job_id"],)
-            ).fetchone()
+            job = task.get("job_snapshot")
+            if job is None:
+                # Pre-migration tasks have no original input to reconstruct.
+                job = conn.execute(
+                    "SELECT raw_text FROM jobs WHERE id=%s", (task["job_id"],)
+                ).fetchone()
             if job is None:
                 return "failed"
             retriever = search.PostgresFactRetriever(
@@ -358,6 +361,7 @@ def create_app(
             if not state.values or (not state.next and not state.values.get("status")):
                 graph.invoke(
                     {"jd_text": job["raw_text"], "job_id": task["job_id"],
+                     "job_snapshot": task.get("job_snapshot"),
                      "validation_retries": 0},
                     config,
                 )
@@ -821,6 +825,7 @@ def create_app(
                             job_id=state.values["job_id"],
                             sections=state.values["resume"].model_dump(mode="json"),
                             retrieved_facts=state.values["retrieved_facts"],
+                            job_snapshot=state.values.get("job_snapshot"),
                         )
                     except approvals_repo.ApprovalConflict as exc:
                         raise HTTPException(409, str(exc)) from exc

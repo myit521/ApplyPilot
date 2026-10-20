@@ -15,6 +15,7 @@ from __future__ import annotations
 import uuid
 
 import psycopg
+from psycopg.types.json import Jsonb
 
 LEGACY_RUN_PREFIX = "wf_"
 INITIAL_NODE = "queued"
@@ -34,7 +35,7 @@ CANCEL_NOW_STATUSES = (STATUS_QUEUED, STATUS_RETRY_WAIT, STATUS_WAITING_APPROVAL
 SETTLE_STATUSES = (STATUS_WAITING_APPROVAL, STATUS_COMPLETED, STATUS_FAILED,
                    STATUS_RETRY_WAIT, STATUS_CANCELLED)
 
-TASK_COLUMNS = ("run_id", "job_id", "idempotency_key", "status", "attempt_count",
+TASK_COLUMNS = ("run_id", "job_id", "job_snapshot", "idempotency_key", "status", "attempt_count",
                 "next_attempt_at", "cancel_requested", "error", "created_at", "updated_at")
 _SELECT_TASK = "SELECT " + ", ".join(TASK_COLUMNS) + " FROM workflow_tasks"
 _RETURNING = " RETURNING " + ", ".join(TASK_COLUMNS)
@@ -73,7 +74,11 @@ def reserve_workflow_task(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
                 (f"t8.task:{idempotency_key}",),
             )
-        if conn.execute("SELECT id FROM jobs WHERE id=%s FOR SHARE", (job_id,)).fetchone() is None:
+        job = conn.execute(
+            "SELECT id, source, url, company, title, raw_text, parsed FROM jobs WHERE id=%s FOR SHARE",
+            (job_id,),
+        ).fetchone()
+        if job is None:
             raise WorkflowJobNotFound(f"job {job_id} does not exist")
 
         if idempotency_key is not None:
@@ -103,9 +108,9 @@ def reserve_workflow_task(
             (run_id, INITIAL_NODE, INITIAL_STATUS),
         )
         conn.execute(
-            "INSERT INTO workflow_tasks (run_id, job_id, idempotency_key, status) "
-            "VALUES (%s, %s, %s, %s)",
-            (run_id, job_id, idempotency_key, INITIAL_STATUS),
+            "INSERT INTO workflow_tasks (run_id, job_id, job_snapshot, idempotency_key, status) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (run_id, job_id, Jsonb(job), idempotency_key, INITIAL_STATUS),
         )
         return {
             "created": True,

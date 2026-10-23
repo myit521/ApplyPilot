@@ -17,12 +17,12 @@ FastAPI 提供 API 和审核页面，PostgreSQL 承担业务事务与快照，La
 
 ## 已有验证
 
-最近一次代码验收基准为 `9d34e12`（2026-10-20），不是本轮文档改动后的重新测试：
+最近一次代码验收基准为 `dc475bf`（T34，2026-10-23）：
 
 | 证据 | 实际范围 |
 | --- | --- |
-| [T32 本机完整回归](docs/t32-execution.md) | 398 项通过、3 条既有弃用警告；包含临时 PostgreSQL、恢复及 Edge 浏览器，供应商 HTTP 为替身 |
-| [T32 托管 CI](https://github.com/myit521/ApplyPilot/actions/runs/39357963363) | 已成功，只执行非 integration 测试，不包含本机浏览器或容器验收 |
+| [T34 本机完整回归](docs/t34-execution.md) | 399 项通过、3 条既有弃用警告；包含临时 PostgreSQL、恢复及 Edge 浏览器，供应商 HTTP 为替身；修复冻结标签及指定旧版选择 |
+| [T33 托管 CI](https://github.com/myit521/ApplyPilot/actions/runs/39399600353) | 已成功，只执行非 integration 测试，不包含本机浏览器或容器验收；T34 的两处回归属 integration，CI 不执行，托管状态以 PR 当前检查为准 |
 | [T27 真实模型单例](docs/t27-execution.md) | 一个合成案例、4 次受限 API 请求；使用演示适配器，不是默认适配器完整浏览器真实模型验收 |
 
 这些证据不代表真实招聘场景质量、生产可靠性或性能提升。检索对照仅限固定小型合成集，详见 [T24](docs/t24-execution.md) / [T25](docs/t25-execution.md)。完整历史与接口契约保留在[历史 README](docs/history-before-t33.md)，设计图和计划不作为已实现证据。

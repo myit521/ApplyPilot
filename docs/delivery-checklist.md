@@ -1,12 +1,12 @@
 # 本机交付与演示检查单
 
-更新：2026-10-20。范围是单用户、单应用实例的 MVP 候选，不含招聘网站自动提交。
+更新：2026-10-23。范围是单用户、单应用实例的 MVP 候选，不含招聘网站自动提交。
 
 ## 交付版本
 
-当前代码验收基准为 `9d34e12`（T32，2026-10-20），开发分支为 `codex/t26-delivery-integration`。本轮整理开始时，[PR #1](https://github.com/myit521/ApplyPilot/pull/1) 的 head 为该提交；后续仅文档提交以 PR 当前 head 为准。PR 保持草稿、未合并，base 为 `19115a7`，main 功能仍到 T6。不要把旧的分支领先提交数当作当前状态。
+当前代码验收基准为 `dc475bf`（T34，2026-10-23），开发分支为 `codex/t26-delivery-integration`。[PR #1](https://github.com/myit521/ApplyPilot/pull/1) 的最终 head 以 PR 为准。PR 保持草稿、未合并，base 为 `19115a7`，main 功能仍到 T6。不要把旧的分支领先提交数当作当前状态。
 
-最近一次本机完整回归为 398 passed、3 warnings；T32 托管[离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/39357963363) 已成功。它们来自 T32 的实际运行，本轮仅整理文档、不重复宣称运行测试。T26/T28 的历史 SHA 与公开可达历史清理范围保留在原记录和 [T28 汇总](evaluation/t28-privacy-audit.json)，历史记录不覆盖改写。
+最近一次本机完整回归为 **399 passed、3 warnings in 148.20s**，见 [T34](t34-execution.md)。T34 修复投递选择框优先显示冻结公司/职位，以及从审核链接指定的旧版本被最近 100 条排除的问题；DSH 只读复核，主审执行测试。T33 托管[离线 CI](https://github.com/myit521/ApplyPilot/actions/runs/39399600353) 已成功，T34 CI 以 PR 当前检查为准；两处新回归属于 integration，托管离线 CI 不执行它们，本机全量结果才是相应证据。T26/T28 的历史 SHA 与公开可达历史清理范围保留在原记录和 [T28 汇总](evaluation/t28-privacy-audit.json)，历史记录不覆盖改写。
 
 ## 无密钥启动检查
 
@@ -32,7 +32,7 @@ python -m pytest -p no:cacheprovider -q tests/test_t13_browser_rehearsal.py
 python -m pytest -p no:cacheprovider -q --tb=short
 ```
 
-第一条为 T32 增强的 T13 浏览器流程，使用默认 DeepSeek 适配器、供应商 HTTP 替身、临时数据库和合成资料；覆盖退回、编辑重校验、批准、DOCX 内容及人工记录，并核对六次调用日志。需安装 Playwright Python 包及本机 Edge，缺少依赖时跳过不能当作演示通过。详见 [T32](t32-execution.md)；合成配置和 HTTP 替换只在测试中生效，不是运行时开关。T32 完整套件为 398 项通过，不验证真实招聘网站或真实生成质量。
+第一条为 T32 增强的 T13 浏览器流程，使用默认 DeepSeek 适配器、供应商 HTTP 替身、临时数据库和合成资料；覆盖退回、编辑重校验、批准、DOCX 内容及人工记录，并核对六次调用日志。需安装 Playwright Python 包及本机 Edge，缺少依赖时跳过不能当作演示通过。详见 [T32](t32-execution.md)；合成配置和 HTTP 替换只在测试中生效，不是运行时开关。该流程已在 T34 的 399 项完整回归中再次通过，不验证真实招聘网站或真实生成质量。
 
 这是无头浏览器自动验收：测试结束时临时服务和数据库退出。不能在结束后访问临时端口，也不把测试替身称为常驻演示模式。无需向测试提供个人简历或真实模型密钥。
 

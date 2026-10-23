@@ -48,8 +48,12 @@ def test_owned_checkpoint_connection_closed(monkeypatch):
     connection = MagicMock()
     saver = MagicMock()
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: connection)
-    monkeypatch.setattr(api, "PostgresSaver", lambda conn: saver)
+    factory = MagicMock(return_value=saver)
+    monkeypatch.setattr(api, "PostgresSaver", factory)
     with TestClient(api.create_app()):
+        serializer = factory.call_args.kwargs["serde"]
+        assert serializer.pickle_fallback is False
+        assert serializer._allowed_msgpack_modules is not True
         saver.setup.assert_called_once()
         connection.close.assert_not_called()
     connection.close.assert_called_once()
@@ -61,7 +65,7 @@ def test_failed_checkpoint_setup_closes_connection(monkeypatch):
     saver = MagicMock()
     saver.setup.side_effect = psycopg.OperationalError("private")
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: connection)
-    monkeypatch.setattr(api, "PostgresSaver", lambda conn: saver)
+    monkeypatch.setattr(api, "PostgresSaver", lambda conn, **kwargs: saver)
     with TestClient(api.create_app()) as client:
         assert client.get("/health/ready").status_code == 503
         connection.close.assert_called_once()
@@ -103,9 +107,38 @@ def test_readiness_detects_lost_checkpoint_connection(monkeypatch):
     probe_conn.execute.return_value.fetchone.return_value = {"ready": True, "name": "schema_migrations"}
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: checkpoint_conn)
     monkeypatch.setattr(api.db, "connect", lambda *a, **k: probe_conn)
-    monkeypatch.setattr(api, "PostgresSaver", lambda conn: MagicMock())
+    monkeypatch.setattr(api, "PostgresSaver", lambda conn, **kwargs: MagicMock())
     with TestClient(api.create_app()) as client:
         assert client.get("/health/ready").status_code == 200
         checkpoint_conn.execute.side_effect = psycopg.OperationalError("connection lost")
         assert client.get("/health/ready").status_code == 503
         assert client.get("/health/live").status_code == 200
+
+
+def test_schema_ready_requires_t7_tables_and_migration():
+    from types import SimpleNamespace
+
+    from applypilot import db
+
+    queries = []
+    migration_present = False
+
+    def execute(query, params=None):
+        queries.append(query)
+        if "to_regclass('schema_migrations')" in query:
+            row = {"name": "schema_migrations"}
+        elif "bool_and" in query:
+            row = {"ready": True}
+        elif "003_atomic_approval_snapshot.sql" in query:
+            row = {"version": "003_atomic_approval_snapshot.sql"} if migration_present else None
+        else:
+            row = {"version": "002_fact_confirmation.sql"}
+        return SimpleNamespace(fetchone=lambda: row)
+
+    connection = MagicMock()
+    connection.execute.side_effect = execute
+    assert db.schema_ready(connection) is False
+    assert "workflow_approvals" in queries[1]
+    assert "resume_version_facts" in queries[1]
+    migration_present = True
+    assert db.schema_ready(connection) is True

@@ -1,0 +1,201 @@
+{
+  "scope": "explicit named technology terms in 10 synthetic JDs only",
+  "named_terms": 22,
+  "found": 22,
+  "correct_importance": 22,
+  "cases": [
+    {
+      "id": "jd01",
+      "named_technologies": [
+        {
+          "term": "Java",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Spring Boot",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "业务接口开发"
+      ]
+    },
+    {
+      "id": "jd02",
+      "named_technologies": [
+        {
+          "term": "MySQL",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Redis",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Kafka",
+          "expected_importance": "preferred",
+          "observed_importance": "preferred"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "慢查询分析"
+      ]
+    },
+    {
+      "id": "jd03",
+      "named_technologies": [
+        {
+          "term": "Docker",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Kubernetes",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "容器部署"
+      ]
+    },
+    {
+      "id": "jd04",
+      "named_technologies": [
+        {
+          "term": "Java",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "JUnit",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "接口评审"
+      ]
+    },
+    {
+      "id": "jd05",
+      "named_technologies": [
+        {
+          "term": "Python",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "FastAPI",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "企业知识库问答"
+      ]
+    },
+    {
+      "id": "jd06",
+      "named_technologies": [
+        {
+          "term": "LangGraph",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Python",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "生产级监控"
+      ]
+    },
+    {
+      "id": "jd07",
+      "named_technologies": [
+        {
+          "term": "Java",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Kafka",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Spring Cloud",
+          "expected_importance": "preferred",
+          "observed_importance": "preferred"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": []
+    },
+    {
+      "id": "jd08",
+      "named_technologies": [
+        {
+          "term": "MySQL",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "PostgreSQL",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "SQL",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "数据库调优"
+      ]
+    },
+    {
+      "id": "jd09",
+      "named_technologies": [],
+      "other_extracted_terms_for_manual_review": [
+        "后端",
+        "跨团队联调"
+      ]
+    },
+    {
+      "id": "jd10",
+      "named_technologies": [
+        {
+          "term": "Spring Boot",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Redis",
+          "expected_importance": "required",
+          "observed_importance": "required"
+        },
+        {
+          "term": "Docker",
+          "expected_importance": "preferred",
+          "observed_importance": "preferred"
+        }
+      ],
+      "other_extracted_terms_for_manual_review": [
+        "高可用"
+      ]
+    }
+  ],
+  "limits": [
+    "Other extracted terms are unscored, not automatically false positives.",
+    "This does not assess full requirement extraction, paraphrases or real jobs.",
+    "Annotations and evaluated model output use the same small synthetic set."
+  ]
+}

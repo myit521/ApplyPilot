@@ -1,0 +1,382 @@
+{
+  "at_utc": "2026-10-19T17:06:29.989705+08:00",
+  "synthetic_only": true,
+  "fixture": {
+    "profile": {
+      "name": "合成候选人 T27",
+      "email": "t27@example.test"
+    },
+    "fact": {
+      "fact_type": "project",
+      "source_name": "合成练习项目 T27",
+      "content": "参与 Java 接口开发，并为接口编写单元测试。",
+      "skills": [
+        "Java"
+      ],
+      "evidence_type": "self_report"
+    },
+    "job": {
+      "title": "合成 Java 后端岗位 T27",
+      "company": "合成演示公司 T27",
+      "raw_text": "招聘 Java 后端开发。必备：Java。职责：参与接口开发与单元测试。"
+    }
+  },
+  "fixture_sha256": "f478b20ef7d335d1f52aebb9b25314e2b0a30581e777509b6a308a59f760e659",
+  "source_commit": "82ce2fd2b1c76bd27be13b67c5be6b3cda0829e5",
+  "harness_sha256": "ef50ce3735ad69cb91db4bf213ae8466a2e4ae604fc024e2c5aec98768fdf027",
+  "max_requests": 6,
+  "max_output_tokens_per_request": 1200,
+  "requests": [
+    {
+      "index": 1,
+      "step": "parse",
+      "input_chars": 676,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 300,
+        "completion_tokens": 98,
+        "total_tokens": 398
+      },
+      "elapsed_seconds": 1.707
+    },
+    {
+      "index": 2,
+      "step": "parse",
+      "input_chars": 676,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 300,
+        "completion_tokens": 94,
+        "total_tokens": 394
+      },
+      "elapsed_seconds": 1.6
+    },
+    {
+      "index": 3,
+      "step": "generate",
+      "input_chars": 733,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 361,
+        "completion_tokens": 100,
+        "total_tokens": 461
+      },
+      "elapsed_seconds": 1.345
+    },
+    {
+      "index": 4,
+      "step": "semantic_review",
+      "input_chars": 392,
+      "http_status": 200,
+      "model": "deepseek-flash",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 226,
+        "completion_tokens": 6,
+        "total_tokens": 232
+      },
+      "elapsed_seconds": 1.14
+    }
+  ],
+  "rehearsal_adapter": "T14 request_once with per-call output and total request caps",
+  "embedding_provider": "NullEmbeddingProvider; keyword retrieval only",
+  "status": "completed",
+  "recruitment_site_calls": 0,
+  "ready_status": 200,
+  "confirmed_fact": {
+    "id": "fact_99106c10d4de440a82151e4ba97af475",
+    "status": "confirmed",
+    "revision": 2,
+    "origin": "human",
+    "school": "",
+    "degree": "",
+    "major": "",
+    "fact_type": "project",
+    "source_name": "合成练习项目 T27",
+    "content": "参与 Java 接口开发，并为接口编写单元测试。",
+    "start_date": null,
+    "end_date": null,
+    "skills": [
+      "Java"
+    ],
+    "metrics": [],
+    "evidence_type": "self_report",
+    "evidence_ref": "",
+    "enabled": true
+  },
+  "job": {
+    "id": 1,
+    "source": "paste",
+    "url": null,
+    "company": "合成演示公司 T27",
+    "title": "合成 Java 后端岗位 T27",
+    "raw_text": "招聘 Java 后端开发。必备：Java。职责：参与接口开发与单元测试。",
+    "parsed": {
+      "keywords": [
+        {
+          "term": "Java",
+          "importance": "required"
+        }
+      ],
+      "location": "",
+      "required": [
+        "Java"
+      ],
+      "unknowns": [
+        "工作地点",
+        "学历要求",
+        "毕业时间要求",
+        "实习或项目经验要求",
+        "加分条件"
+      ],
+      "job_title": "Java 后端开发",
+      "preferred": [],
+      "job_category": "后端开发",
+      "responsibilities": [
+        "参与接口开发",
+        "参与单元测试"
+      ],
+      "education_requirement": "",
+      "experience_requirement": "",
+      "graduation_time_requirement": ""
+    },
+    "created_at": "2026-10-19T09:06:42.773406Z"
+  },
+  "match": {
+    "terms": [
+      "Java"
+    ],
+    "candidates": [
+      {
+        "fact": {
+          "id": "fact_99106c10d4de440a82151e4ba97af475",
+          "status": "confirmed",
+          "revision": 2,
+          "origin": "human",
+          "school": "",
+          "degree": "",
+          "major": "",
+          "fact_type": "project",
+          "source_name": "合成练习项目 T27",
+          "content": "参与 Java 接口开发，并为接口编写单元测试。",
+          "start_date": null,
+          "end_date": null,
+          "skills": [
+            "Java"
+          ],
+          "metrics": [],
+          "evidence_type": "self_report",
+          "evidence_ref": "",
+          "enabled": true
+        },
+        "score": 0.7,
+        "sources": [
+          "fulltext"
+        ],
+        "skill_coverage": 1.0,
+        "fulltext_score": 1.0,
+        "vector_score": 0.0
+      }
+    ],
+    "requirements": [
+      {
+        "category": "required",
+        "text": "Java",
+        "status": "supported",
+        "reason": "所有提取出的关键词都在所列事实中找到；仍需人工核对上下文",
+        "keywords": [
+          "Java"
+        ],
+        "matched_terms": [
+          "Java"
+        ],
+        "evidence": [
+          {
+            "fact_id": "fact_99106c10d4de440a82151e4ba97af475",
+            "revision": 2,
+            "source_name": "合成练习项目 T27",
+            "fact_type": "project",
+            "excerpt": "参与 Java 接口开发，并为接口编写单元测试。",
+            "matched_terms": [
+              "Java"
+            ],
+            "match_basis": [
+              "skill"
+            ],
+            "matched_skills": [
+              "Java"
+            ]
+          }
+        ]
+      },
+      {
+        "category": "responsibility",
+        "text": "参与接口开发",
+        "status": "unknown",
+        "reason": "JD 解析没有为该条目提取可逐项匹配的技术关键词",
+        "keywords": [],
+        "matched_terms": [],
+        "evidence": []
+      },
+      {
+        "category": "responsibility",
+        "text": "参与单元测试",
+        "status": "unknown",
+        "reason": "JD 解析没有为该条目提取可逐项匹配的技术关键词",
+        "keywords": [],
+        "matched_terms": [],
+        "evidence": []
+      }
+    ],
+    "unknowns": [
+      {
+        "text": "工作地点",
+        "status": "unknown",
+        "reason": "职位描述解析器无法确定此项"
+      },
+      {
+        "text": "学历要求",
+        "status": "unknown",
+        "reason": "职位描述解析器无法确定此项"
+      },
+      {
+        "text": "毕业时间要求",
+        "status": "unknown",
+        "reason": "职位描述解析器无法确定此项"
+      },
+      {
+        "text": "实习或项目经验要求",
+        "status": "unknown",
+        "reason": "职位描述解析器无法确定此项"
+      },
+      {
+        "text": "加分条件",
+        "status": "unknown",
+        "reason": "职位描述解析器无法确定此项"
+      }
+    ],
+    "semantic_candidates": []
+  },
+  "draft": {
+    "run_id": "wf_0547f4870b6848f7b5bc211dfc402ea4",
+    "status": "WAITING_APPROVAL",
+    "waiting": true,
+    "validation_retries": 0,
+    "draft_revision": 1,
+    "error": "",
+    "sections": {
+      "education": [],
+      "skills": [
+        {
+          "text": "Java",
+          "fact_ids": [
+            "fact_99106c10d4de440a82151e4ba97af475"
+          ],
+          "matched_requirements": []
+        }
+      ],
+      "experience": [
+        {
+          "text": "参与 Java 接口开发，并为接口编写单元测试。",
+          "fact_ids": [
+            "fact_99106c10d4de440a82151e4ba97af475"
+          ],
+          "matched_requirements": [
+            "Java",
+            "参与接口开发与单元测试"
+          ]
+        }
+      ]
+    },
+    "previous_sections": null,
+    "validation_errors": [],
+    "task_status": "waiting_approval"
+  },
+  "operator_review": {
+    "run_id": "wf_0547f4870b6848f7b5bc211dfc402ea4",
+    "expected_revision": 1,
+    "reviewed_by": "parent_agent",
+    "synthetic_only": true,
+    "findings": "Both claims cite the confirmed synthetic fact; no new metric, skill or contribution expansion. Live review page inspected before approval."
+  },
+  "approval": {
+    "run_id": "wf_0547f4870b6848f7b5bc211dfc402ea4",
+    "status": "READY_TO_APPLY",
+    "waiting": false,
+    "validation_retries": 0,
+    "draft_revision": 1,
+    "error": "",
+    "sections": {
+      "skills": [
+        {
+          "text": "Java",
+          "fact_ids": [
+            "fact_99106c10d4de440a82151e4ba97af475"
+          ],
+          "matched_requirements": []
+        }
+      ],
+      "education": [],
+      "experience": [
+        {
+          "text": "参与 Java 接口开发，并为接口编写单元测试。",
+          "fact_ids": [
+            "fact_99106c10d4de440a82151e4ba97af475"
+          ],
+          "matched_requirements": [
+            "Java",
+            "参与接口开发与单元测试"
+          ]
+        }
+      ]
+    },
+    "previous_sections": null,
+    "validation_errors": [],
+    "resume_version_id": 1,
+    "content_sha256": "76c642cec269cd351670f226485f7deb276919aeab643eadf89279a8ca2d70c5",
+    "approval_reconciliation_pending": false
+  },
+  "docx": {
+    "bytes": 36843,
+    "sha256": "e24dcaa46313c588292414f509fdf76e956faf015b05d14479a3d8f0ab34f748",
+    "text": "合成候选人 T27\n邮箱：t27@example.test\n应聘岗位：合成 Java 后端岗位 T27\n专业技能\nJava\n工作与项目经历\n参与 Java 接口开发，并为接口编写单元测试。"
+  },
+  "application": {
+    "id": 1,
+    "job_id": 1,
+    "version_id": 1,
+    "channel": "仅合成演示，无外部提交",
+    "source": "user_reported",
+    "status": "unknown",
+    "occurred_at": null,
+    "result": "未访问招聘网站",
+    "idempotency_key": "t27-one-record",
+    "revision": 1,
+    "created_at": "2026-10-19T09:08:55.170801Z",
+    "updated_at": "2026-10-19T09:08:55.170801Z"
+  },
+  "review_page_status": 200,
+  "applications_page_status": 200,
+  "server_stopped": true,
+  "container_context_closed": true,
+  "cleanup_verified": true,
+  "total_usage": {
+    "prompt_tokens": 1187,
+    "completion_tokens": 298,
+    "total_tokens": 1485
+  },
+  "limitations": [
+    "One simple synthetic example; no quality or success-rate estimate.",
+    "Real generation model through a capped rehearsal adapter, not the default production adapter.",
+    "Keyword retrieval only; NullEmbeddingProvider was injected.",
+    "API workflow plus read-only Edge review rendering; not complete browser-input automation.",
+    "No real recruiting website or external submission.",
+    "DOCX text checked; multi-page visual layout not verified."
+  ]
+}

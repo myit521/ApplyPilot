@@ -12,32 +12,66 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+import re
+
 import psycopg
 
 from .embeddings import EmbeddingProvider, NullEmbeddingProvider
+from .jd_polarity import is_explicit_non_requirement
+from .matching import _contains_term
 from .retrieval import RetrievalWeights, merge_and_score
-from .schemas import Fact, JobRequirements
+from .schemas import Fact, JobRequirements, KeywordRequirement
 
 # 全文检索返回的候选上限，之后由加权打分截断到 top_k
 _CANDIDATE_LIMIT = 20
 
 
-def _escape_like(term: str) -> str:
-    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+def _keyword_pattern(term: str) -> str:
+    literal = re.escape(term)
+    if re.search(r"[A-Za-z0-9]", term):
+        return rf"(^|[^A-Za-z0-9]){literal}($|[^A-Za-z0-9])"
+    return literal
+
+
+def _safe_required(requirements: JobRequirements) -> list[str]:
+    return [text for text in requirements.required if not is_explicit_non_requirement(text)]
+
+
+def _safe_responsibilities(requirements: JobRequirements) -> list[str]:
+    return [text for text in requirements.responsibilities if not is_explicit_non_requirement(text)]
+
+
+def _eligible_keywords(requirements: JobRequirements) -> Iterator[KeywordRequirement]:
+    positive = _safe_required(requirements) + [
+        text for text in requirements.preferred if not is_explicit_non_requirement(text)
+    ] + _safe_responsibilities(requirements)
+    negative = [text for text in requirements.required + requirements.preferred + requirements.responsibilities
+                if is_explicit_non_requirement(text)]
+    for keyword in requirements.keywords:
+        term = keyword.term.strip()
+        if not term:
+            continue
+        positive_match = any(_contains_term(text, term) for text in positive)
+        if ((any(_contains_term(text, term) for text in negative) and not positive_match)
+                or (keyword.importance == "mentioned" and not positive_match)):
+            continue
+        yield keyword
 
 
 def extract_terms(requirements: JobRequirements) -> list[str]:
     """从 JD 解析结果提取检索词：优先技术关键词，兜底必备条件原文。"""
-    terms = [k.term for k in requirements.keywords if k.term.strip()]
+    terms = [k.term.strip() for k in _eligible_keywords(requirements)]
     if not terms:
-        terms = [r for r in requirements.required if r.strip()]
+        terms = [r for r in _safe_required(requirements) if r.strip()]
     return terms
 
 
 def required_skill_terms(requirements: JobRequirements) -> list[str]:
     """必备级别的关键词，用于技能覆盖率打分。"""
-    required = [k.term for k in requirements.keywords if k.importance == "required"]
-    return required or extract_terms(requirements)
+    required = [k.term.strip() for k in _eligible_keywords(requirements)
+                if k.importance == "required"]
+    return required or [text for text in _safe_required(requirements) if text.strip()]
 
 
 def fulltext_hits(
@@ -48,17 +82,17 @@ def fulltext_hits(
     terms = [t.strip() for t in terms if t.strip()]
     if not terms:
         return {}
-    patterns = [f"%{_escape_like(t)}%" for t in terms]
+    patterns = [_keyword_pattern(term) for term in terms]
     rows = conn.execute(
         """
         SELECT id, matched::float / %(n)s AS score FROM (
             SELECT id, (
-                SELECT count(*) FROM unnest(%(patterns)s::text[]) p
-                WHERE content ILIKE p ESCAPE '\\'
-                   OR source_name ILIKE p ESCAPE '\\'
+                SELECT count(*) FROM unnest(%(terms)s::text[], %(patterns)s::text[]) AS t(term, pattern)
+                WHERE content ~* t.pattern
+                   OR source_name ~* t.pattern
                    OR EXISTS (
                         SELECT 1 FROM unnest(skills) s
-                        WHERE p ILIKE concat('%%', s, '%%') ESCAPE '\\'
+                        WHERE lower(btrim(s)) = lower(t.term)
                       )
             ) AS matched
             FROM facts WHERE enabled AND status='confirmed'
@@ -68,7 +102,7 @@ def fulltext_hits(
         ORDER BY score DESC, id
         LIMIT %(limit)s
         """,
-        {"patterns": patterns, "n": len(terms), "limit": limit, "exclude_education": exclude_education},
+        {"terms": terms, "patterns": patterns, "n": len(terms), "limit": limit, "exclude_education": exclude_education},
     ).fetchall()
     return {r["id"]: float(r["score"]) for r in rows}
 
@@ -97,8 +131,8 @@ def vector_hits(
 
 def _query_text(requirements: JobRequirements) -> str:
     parts = [requirements.job_title, requirements.job_category]
-    parts += requirements.required + requirements.responsibilities
-    parts += [k.term for k in requirements.keywords]
+    parts += _safe_required(requirements) + _safe_responsibilities(requirements)
+    parts += [k.term.strip() for k in _eligible_keywords(requirements)]
     return " ".join(p for p in parts if p)
 
 

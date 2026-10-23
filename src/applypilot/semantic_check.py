@@ -13,7 +13,7 @@ import re
 
 from pydantic import ValidationError as PydanticValidationError
 
-from .model_adapter import ModelAdapter
+from .model_adapter import ModelAdapter, RetryableModelError
 from .schemas import (
     ErrorCode,
     Fact,
@@ -61,6 +61,8 @@ def semantic_check(
     facts_by_id = {f.id: f for f in facts}
     try:
         output = adapter.complete(_SYSTEM_PROMPT, _build_user_prompt(claims, facts_by_id))
+    except RetryableModelError:
+        raise
     except Exception:
         return [_unavailable_error(claims)]
     try:

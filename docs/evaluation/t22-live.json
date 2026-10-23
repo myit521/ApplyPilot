@@ -1,0 +1,890 @@
+{
+  "run": {
+    "at_utc": "2026-10-13T05:49:51.165215+00:00",
+    "source_commit": "84ad3784eb0beaf3a545525cbb975c9a4c843366",
+    "model_requested": "deepseek-chat",
+    "temperature": 0.2,
+    "request_cap": 18,
+    "attempted_requests": 10,
+    "max_output_tokens_per_request": 1000,
+    "transport_retries": 0,
+    "status": "complete",
+    "synthetic_only": true
+  },
+  "fixtures_sha256": {
+    "t22_cases": "e0cdeaaa401594feb8b5280b59f3d9ee9fbe60b2a07400327ce88470c81a25c1",
+    "t18_report": "cfc3160a622bc3755a197ee592aac58ca93165e49ef13794caf5adaf83fbabc3"
+  },
+  "cases": [
+    {
+      "id": "n-h07",
+      "mode": "natural",
+      "jd_text": "数据库服务（上海）：必须熟悉 PostgreSQL；MySQL 非必需；负责备份与恢复流程。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 301,
+            "completion_tokens": 135,
+            "total_tokens": 436
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 46,
+          "parsed_structure": {
+            "job_title": "数据库服务",
+            "job_category": "",
+            "location": "上海",
+            "required": [
+              "熟悉 PostgreSQL"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责备份与恢复流程"
+            ],
+            "keywords": [
+              {
+                "term": "PostgreSQL",
+                "importance": "required"
+              },
+              {
+                "term": "MySQL",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "数据库服务",
+        "job_category": "",
+        "location": "上海",
+        "required": [
+          "熟悉 PostgreSQL"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责备份与恢复流程"
+        ],
+        "keywords": [
+          {
+            "term": "PostgreSQL",
+            "importance": "required"
+          },
+          {
+            "term": "MySQL",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "n-h08",
+      "mode": "natural",
+      "jd_text": "消息平台开发（杭州）：要求 Kafka 和 Redis；不要求 RabbitMQ；参与消息链路压测。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 304,
+            "completion_tokens": 154,
+            "total_tokens": 458
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 50,
+          "parsed_structure": {
+            "job_title": "消息平台开发",
+            "job_category": "",
+            "location": "杭州",
+            "required": [
+              "Kafka",
+              "Redis"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "参与消息链路压测"
+            ],
+            "keywords": [
+              {
+                "term": "Kafka",
+                "importance": "required"
+              },
+              {
+                "term": "Redis",
+                "importance": "required"
+              },
+              {
+                "term": "RabbitMQ",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "消息平台开发",
+        "job_category": "",
+        "location": "杭州",
+        "required": [
+          "Kafka",
+          "Redis"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参与消息链路压测"
+        ],
+        "keywords": [
+          {
+            "term": "Kafka",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "required"
+          },
+          {
+            "term": "RabbitMQ",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "n-h12",
+      "mode": "natural",
+      "jd_text": "校招后端（武汉）：面向 2027 届本科生，不限制实习经历；参与接口设计。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 304,
+            "completion_tokens": 136,
+            "total_tokens": 440
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 37,
+          "parsed_structure": {
+            "job_title": "校招后端",
+            "job_category": "后端开发",
+            "location": "武汉",
+            "required": [],
+            "preferred": [],
+            "responsibilities": [
+              "参与接口设计"
+            ],
+            "keywords": [
+              {
+                "term": "后端",
+                "importance": "mentioned"
+              },
+              {
+                "term": "接口设计",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "本科生",
+            "graduation_time_requirement": "2027届",
+            "experience_requirement": "",
+            "unknowns": [
+              "具体技术栈",
+              "薪资待遇",
+              "是否接受非全日制学历"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "校招后端",
+        "job_category": "后端开发",
+        "location": "武汉",
+        "required": [],
+        "preferred": [],
+        "responsibilities": [
+          "参与接口设计"
+        ],
+        "keywords": [
+          {
+            "term": "后端",
+            "importance": "mentioned"
+          },
+          {
+            "term": "接口设计",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "本科生",
+        "graduation_time_requirement": "2027届",
+        "experience_requirement": "",
+        "unknowns": [
+          "具体技术栈",
+          "薪资待遇",
+          "是否接受非全日制学历"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "n-h18",
+      "mode": "natural",
+      "jd_text": "后端开发：Spring Boot 必备；现有系统使用 Redis，但本岗位不要求 Redis 经验；负责接口维护。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 307,
+            "completion_tokens": 163,
+            "total_tokens": 470
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 57,
+          "parsed_structure": {
+            "job_title": "后端开发",
+            "job_category": "",
+            "location": "",
+            "required": [
+              "Spring Boot 必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责接口维护"
+            ],
+            "keywords": [
+              {
+                "term": "Spring Boot",
+                "importance": "required"
+              },
+              {
+                "term": "Redis",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "工作地点",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "后端开发",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "Spring Boot 必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责接口维护"
+        ],
+        "keywords": [
+          {
+            "term": "Spring Boot",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "n-h19",
+      "mode": "natural",
+      "jd_text": "Agent 平台（北京）：Python 必备；LangGraph 仅是现有技术栈示例，不作为招聘要求；负责工具调用审计。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 309,
+            "completion_tokens": 136,
+            "total_tokens": 445
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 60,
+          "parsed_structure": {
+            "job_title": "Agent 平台",
+            "job_category": "",
+            "location": "北京",
+            "required": [
+              "Python 必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责工具调用审计"
+            ],
+            "keywords": [
+              {
+                "term": "Python",
+                "importance": "required"
+              },
+              {
+                "term": "LangGraph",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "Agent 平台",
+        "job_category": "",
+        "location": "北京",
+        "required": [
+          "Python 必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责工具调用审计"
+        ],
+        "keywords": [
+          {
+            "term": "Python",
+            "importance": "required"
+          },
+          {
+            "term": "LangGraph",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "n-h20",
+      "mode": "natural",
+      "jd_text": "移动服务后端：Java 为必备；GraphQL 可选；负责支持幂等重试的接口。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 304,
+            "completion_tokens": 159,
+            "total_tokens": 463
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 39,
+          "parsed_structure": {
+            "job_title": "移动服务后端",
+            "job_category": "",
+            "location": "",
+            "required": [
+              "Java 为必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责支持幂等重试的接口"
+            ],
+            "keywords": [
+              {
+                "term": "Java",
+                "importance": "required"
+              },
+              {
+                "term": "GraphQL",
+                "importance": "mentioned"
+              },
+              {
+                "term": "幂等重试",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "工作地点",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "移动服务后端",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "Java 为必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责支持幂等重试的接口"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "GraphQL",
+            "importance": "mentioned"
+          },
+          {
+            "term": "幂等重试",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "c-parameters",
+      "mode": "natural",
+      "jd_text": "接口平台开发：必须熟悉接口可选参数的设计；负责接口兼容性维护。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 298,
+            "completion_tokens": 112,
+            "total_tokens": 410
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 31,
+          "parsed_structure": {
+            "job_title": "接口平台开发",
+            "job_category": "",
+            "location": "",
+            "required": [
+              "熟悉接口可选参数的设计"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责接口兼容性维护"
+            ],
+            "keywords": [
+              {
+                "term": "接口可选参数设计",
+                "importance": "required"
+              },
+              {
+                "term": "接口兼容性维护",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "工作地点",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "接口平台开发",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "熟悉接口可选参数的设计"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责接口兼容性维护"
+        ],
+        "keywords": [
+          {
+            "term": "接口可选参数设计",
+            "importance": "required"
+          },
+          {
+            "term": "接口兼容性维护",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "c-comma",
+      "mode": "natural",
+      "jd_text": "合成后端（南京）：Java 必备，不要求 Redis；负责服务接口开发。",
+      "seeded_first_response": false,
+      "parser_calls": 1,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 299,
+            "completion_tokens": 133,
+            "total_tokens": 432
+          },
+          "parser_call": 1,
+          "user_prompt_chars": 36,
+          "parsed_structure": {
+            "job_title": "合成后端",
+            "job_category": "后端开发",
+            "location": "南京",
+            "required": [
+              "Java 必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责服务接口开发"
+            ],
+            "keywords": [
+              {
+                "term": "Java",
+                "importance": "required"
+              },
+              {
+                "term": "Redis",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "合成后端",
+        "job_category": "后端开发",
+        "location": "南京",
+        "required": [
+          "Java 必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责服务接口开发"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "Redis",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": false
+    },
+    {
+      "id": "s-h12",
+      "mode": "seeded_repair",
+      "jd_text": "校招后端（武汉）：面向 2027 届本科生，不限制实习经历；参与接口设计。",
+      "seeded_first_response": true,
+      "parser_calls": 2,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 400,
+            "completion_tokens": 107,
+            "total_tokens": 507
+          },
+          "parser_call": 2,
+          "user_prompt_chars": 298,
+          "parsed_structure": {
+            "job_title": "校招后端",
+            "job_category": "后端开发",
+            "location": "武汉",
+            "required": [
+              "面向 2027 届本科生"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "参与接口设计"
+            ],
+            "keywords": [
+              {
+                "term": "后端",
+                "importance": "required"
+              }
+            ],
+            "education_requirement": "本科",
+            "graduation_time_requirement": "2027 届",
+            "experience_requirement": "",
+            "unknowns": [
+              "实习经历是否要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "校招后端",
+        "job_category": "后端开发",
+        "location": "武汉",
+        "required": [
+          "面向 2027 届本科生"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参与接口设计"
+        ],
+        "keywords": [
+          {
+            "term": "后端",
+            "importance": "required"
+          }
+        ],
+        "education_requirement": "本科",
+        "graduation_time_requirement": "2027 届",
+        "experience_requirement": "",
+        "unknowns": [
+          "实习经历是否要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": true
+    },
+    {
+      "id": "s-h20",
+      "mode": "seeded_repair",
+      "jd_text": "移动服务后端：Java 为必备；GraphQL 可选；负责支持幂等重试的接口。",
+      "seeded_first_response": true,
+      "parser_calls": 2,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 396,
+            "completion_tokens": 128,
+            "total_tokens": 524
+          },
+          "parser_call": 2,
+          "user_prompt_chars": 298,
+          "parsed_structure": {
+            "job_title": "移动服务后端",
+            "job_category": "",
+            "location": "",
+            "required": [
+              "Java 为必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责支持幂等重试的接口"
+            ],
+            "keywords": [
+              {
+                "term": "Java",
+                "importance": "required"
+              },
+              {
+                "term": "GraphQL",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "工作地点",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "移动服务后端",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "Java 为必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责支持幂等重试的接口"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "GraphQL",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": true
+    }
+  ],
+  "limits": [
+    "Selected known regressions cannot estimate natural error rates.",
+    "Seeded repair replaces the first response with frozen T18 output.",
+    "Obligations check selected substrings, not full semantic correctness.",
+    "Raw completion, credentials, and real candidate information are not stored."
+  ]
+}

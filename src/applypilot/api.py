@@ -7,10 +7,8 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from contextlib import asynccontextmanager
-import threading
 import uuid
 import unicodedata
 from pathlib import Path
@@ -25,10 +23,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
-from datetime import date
-from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError as PydanticValidationError
+from datetime import date, datetime
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, ValidationError as PydanticValidationError
 
-from . import db, facts_repo, search
+from . import application_repo, approvals_repo, db, facts_repo, search, task_repo
+from .checkpoint_serde import checkpoint_serializer
 from .matching import build_match_report
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -37,8 +37,9 @@ from .docx_export import render_docx
 from .fact_import import FactImportError, extract_facts
 from .jd_parser import JDParseError, parse_jd
 from .model_adapter import ModelError
+from .task_worker import TaskWorker
 from .schemas import Fact, FactType, EvidenceType, ProfileData, JobRequirements, ResumeSections
-from .workflow import WorkflowStatus, build_graph
+from .workflow import WorkflowCancelled, WorkflowStatus, build_graph
 
 
 class FactImportRequest(BaseModel):
@@ -147,15 +148,74 @@ class DraftEditRequest(BaseModel):
     sections: ResumeTextEdits
 
 
+class ApplicationCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: StrictInt = Field(gt=0)
+    version_id: StrictInt = Field(gt=0)
+    channel: str
+    status: Literal["unknown", "submitted", "failed"]
+    occurred_at: datetime | None = None
+    result: str = ""
+
+    @field_validator("channel")
+    @classmethod
+    def validate_channel(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 100 or any(ord(char) < 32 for char in value):
+            raise ValueError("channel must be 1-100 printable characters")
+        return value
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) > 2000 or "\x00" in value:
+            raise ValueError("result must be at most 2000 characters and NUL-free")
+        return value
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("occurred_at must include a time zone")
+        return value
+
+
+class ApplicationUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: StrictInt = Field(gt=0)
+    status: Literal["unknown", "submitted", "failed"] | None = None
+    occurred_at: datetime | None = None
+    result: str | None = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("status cannot be null")
+        return value
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("result cannot be null; use an empty string to clear")
+        return ApplicationCreateRequest.validate_result(value)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: datetime | None) -> datetime | None:
+        return ApplicationCreateRequest.validate_occurred_at(value)
+
+
 def create_app(
     dsn: str | None = None,
     adapter=None,
     checkpointer=None,
 ) -> FastAPI:
     dsn = dsn or db.default_dsn()
-    # 工作流线程的异常登记表：run_id -> 错误信息
-    run_errors: dict[str, str] = {}
-
     def get_conn():
         return db.connect(dsn)
 
@@ -183,7 +243,7 @@ def create_app(
                         row_factory=dict_row, connect_timeout=3,
                         options="-c statement_timeout=5000",
                     )
-                    candidate = PostgresSaver(owned_connection)
+                    candidate = PostgresSaver(owned_connection, serde=checkpoint_serializer())
                     candidate.setup()
                     checkpointer = candidate
                 except psycopg.Error as exc:
@@ -195,8 +255,16 @@ def create_app(
                     if owned_connection is not None:
                         owned_connection.close()
                         owned_connection = None
+            if checkpointer is not None and not injected:
+                try:
+                    with get_conn() as conn:
+                        if db.schema_ready(conn):
+                            worker.start()
+                except psycopg.Error:
+                    pass
             yield
         finally:
+            worker.stop()
             if owned_connection is not None:
                 owned_connection.close()
             if not injected:
@@ -208,7 +276,7 @@ def create_app(
     async def require_initialized_checkpoint(request: Request, call_next):
         path = request.url.path
         if checkpointer is None and (
-            path in ("/", "/jobs") or path.startswith(("/api/", "/review/"))
+            path in ("/", "/jobs", "/applications") or path.startswith(("/api/", "/review/"))
         ):
             return JSONResponse({"detail": "database_not_ready"}, status_code=503)
         return await call_next(request)
@@ -256,6 +324,63 @@ def create_app(
 
             _embedding_provider = LocalEmbeddingProvider()
         return _embedding_provider
+
+    def _execute_task(task: dict) -> str:
+        run_id = task["run_id"]
+        config = {"configurable": {"thread_id": run_id}}
+
+        with get_conn() as conn:
+            if approvals_repo.get_approval(conn, run_id) is not None:
+                return "completed"
+
+        def cancelled() -> bool:
+            if worker.stopping:
+                return True
+            with get_conn() as conn:
+                row = task_repo.get_task(conn, run_id)
+                return row is None or row["cancel_requested"]
+
+        if cancelled():
+            raise WorkflowCancelled()
+        with get_conn() as conn:
+            job = task.get("job_snapshot")
+            if job is None:
+                # Pre-migration tasks have no original input to reconstruct.
+                job = conn.execute(
+                    "SELECT raw_text FROM jobs WHERE id=%s", (task["job_id"],)
+                ).fetchone()
+            if job is None:
+                return "failed"
+            retriever = search.PostgresFactRetriever(
+                conn, embedding_provider=get_embeddings()
+            )
+            graph = build_graph(
+                get_adapter(), retriever, checkpointer=get_checkpointer(),
+                cancel_requested=cancelled,
+            )
+            state = graph.get_state(config)
+            if not state.values or (not state.next and not state.values.get("status")):
+                graph.invoke(
+                    {"jd_text": job["raw_text"], "job_id": task["job_id"],
+                     "job_snapshot": task.get("job_snapshot"),
+                     "validation_retries": 0},
+                    config,
+                )
+            elif state.next and state.next[0] != "approval":
+                graph.invoke(None, config)
+            state = graph.get_state(config)
+
+        if cancelled():
+            raise WorkflowCancelled()
+        if state.values.get("status") == WorkflowStatus.FAILED:
+            return "failed"
+        if state.values.get("status") == WorkflowStatus.READY_TO_APPLY:
+            return "completed"
+        if state.next and state.next[0] == "approval":
+            return "waiting_approval"
+        raise RuntimeError("Workflow ended without a terminal or approval state")
+
+    worker = TaskWorker(dsn, _execute_task)
 
     # ---------- 事实库 ----------
 
@@ -456,11 +581,73 @@ def create_app(
 
     # ---------- 工作流 ----------
 
+    def _approval_summary(approval: dict) -> dict:
+        pending = not approval["graph_reconciled"]
+        return {
+            "run_id": approval["run_id"],
+            "status": (WorkflowStatus.APPROVAL_RECONCILIATION_PENDING
+                      if pending else WorkflowStatus.READY_TO_APPLY),
+            "waiting": False,
+            "validation_retries": 0,
+            "draft_revision": approval["draft_revision"],
+            "error": "",
+            "sections": approval["package"]["sections"],
+            "previous_sections": None,
+            "validation_errors": [],
+            "resume_version_id": approval["version_id"],
+            "content_sha256": approval["content_sha256"],
+            "approval_reconciliation_pending": pending,
+        }
+
+    def _sync_approval_run_status(conn, approval: dict) -> None:
+        pending = not approval["graph_reconciled"]
+        status = (WorkflowStatus.APPROVAL_RECONCILIATION_PENDING
+                  if pending else WorkflowStatus.READY_TO_APPLY)
+        conn.execute(
+            "UPDATE workflow_runs SET current_node=%s, status=%s, error='', updated_at=now() "
+            "WHERE id=%s",
+            ("approval_reconciliation" if pending else "", status, approval["run_id"]),
+        )
+        conn.execute(
+            "UPDATE workflow_tasks SET status='completed', error='', updated_at=now() "
+            "WHERE run_id=%s AND status NOT IN ('completed','cancelled')",
+            (approval["run_id"],),
+        )
+
     def _summarize_state(run_id: str) -> dict:
+        with get_conn() as conn:
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    return _approval_summary(approval)
+                task = task_repo.get_task(conn, run_id)
+
+        def task_only_summary() -> dict:
+            return {
+                "run_id": run_id,
+                "status": task["status"].upper(),
+                "task_status": task["status"],
+                "waiting": False,
+                "validation_retries": 0,
+                "draft_revision": 0,
+                "error": task["error"],
+                "sections": None,
+                "previous_sections": None,
+                "validation_errors": [],
+            }
+
+        if task is not None and task["status"] in (
+            "queued", "running", "retry_wait", "failed", "cancelled"
+        ):
+            return task_only_summary()
+
         graph = get_graph()
         config = {"configurable": {"thread_id": run_id}}
         state = graph.get_state(config)
         if not state.values:
+            if task is not None:
+                return task_only_summary()
             raise HTTPException(404, f"工作流 {run_id} 不存在")
         values: dict[str, Any] = state.values
         resume = values.get("resume")
@@ -471,180 +658,242 @@ def create_app(
             "waiting": bool(state.next),
             "validation_retries": values.get("validation_retries", 0),
             "draft_revision": values.get("draft_revision", 1 if resume else 0),
-            "error": values.get("error") or run_errors.get(run_id, ""),
+            "error": (task["error"] if task is not None and task["error"]
+                      else values.get("error", "")),
             "sections": resume.model_dump(mode="json") if resume else None,
             "previous_sections": previous_resume.model_dump(mode="json") if previous_resume else None,
             "validation_errors": [
                 e.model_dump(mode="json") for e in values.get("validation_errors", [])
             ],
         }
-        conn = get_conn()
-        conn.execute(
-            "INSERT INTO workflow_runs (id, current_node, status, retry_count, error) "
-            "VALUES (%s, %s, %s, %s, %s) "
-            "ON CONFLICT (id) DO UPDATE SET current_node = EXCLUDED.current_node, "
-            "status = EXCLUDED.status, retry_count = EXCLUDED.retry_count, "
-            "error = EXCLUDED.error, updated_at = now()",
-            (
-                run_id,
-                state.next[0] if state.next else "",
-                str(summary["status"]),
-                summary["validation_retries"],
-                summary["error"],
-            ),
-        )
+        if task is not None:
+            summary["task_status"] = task["status"]
+            if task["status"] in ("queued", "running", "retry_wait", "failed"):
+                summary["status"] = task["status"].upper()
+        with get_conn() as conn:
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    return _approval_summary(approval)
+                conn.execute(
+                    "INSERT INTO workflow_runs (id, current_node, status, retry_count, error) "
+                    "VALUES (%s, %s, %s, %s, %s) "
+                    "ON CONFLICT (id) DO UPDATE SET current_node = EXCLUDED.current_node, "
+                    "status = EXCLUDED.status, retry_count = EXCLUDED.retry_count, "
+                    "error = EXCLUDED.error, updated_at = now()",
+                    (
+                        run_id,
+                        state.next[0] if state.next else "",
+                        str(summary["status"]),
+                        summary["validation_retries"],
+                        summary["error"],
+                    ),
+                )
         return summary
-
-    def _run_workflow(run_id: str, jd_text: str, job_id: int) -> None:
-        try:
-            graph = get_graph()
-            config = {"configurable": {"thread_id": run_id}}
-            graph.invoke(
-                {"jd_text": jd_text, "job_id": job_id, "validation_retries": 0},
-                config,
-            )
-        except Exception as e:  # 线程内异常登记，GET 时可见
-            run_errors[run_id] = str(e)
 
     @app.post("/api/workflows", status_code=202)
     def create_workflow(
         req: WorkflowCreateRequest,
         idempotency_key: str | None = Header(default=None),
     ) -> dict:
-        conn = get_conn()
-        row = conn.execute("SELECT raw_text FROM jobs WHERE id = %s", (req.job_id,)).fetchone()
-        if row is None:
-            raise HTTPException(404, f"职位 {req.job_id} 不存在")
-
-        run_id = f"wf_{idempotency_key}" if idempotency_key else f"wf_{uuid.uuid4().hex[:12]}"
         if idempotency_key:
-            existing = conn.execute(
-                "SELECT id FROM workflow_runs WHERE id = %s", (run_id,)
-            ).fetchone()
-            if existing:
-                return _summarize_state(run_id)
+            if (len(idempotency_key) > 128 or not idempotency_key.strip()
+                    or any(ord(c) < 32 for c in idempotency_key)):
+                raise HTTPException(422, "Idempotency-Key must be 1-128 printable characters")
+        try:
+            with get_conn() as conn:
+                reservation = task_repo.reserve_workflow_task(
+                    conn, job_id=req.job_id, idempotency_key=idempotency_key
+                )
+        except task_repo.WorkflowJobNotFound as exc:
+            raise HTTPException(404, f"职位 {req.job_id} 不存在") from exc
+        except task_repo.WorkflowTaskConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
-        thread = threading.Thread(
-            target=_run_workflow, args=(run_id, row["raw_text"], req.job_id), daemon=True
-        )
-        thread.start()
-        conn.execute(
-            "INSERT INTO workflow_runs (id, current_node, status, input_summary) "
-            "VALUES (%s, 'parse_jd', %s, %s) ON CONFLICT (id) DO NOTHING",
-            (run_id, WorkflowStatus.PARSING_JD, row["raw_text"][:200]),
-        )
-        return {"run_id": run_id, "status": WorkflowStatus.PARSING_JD}
+        worker.start()
+        worker.wake()
+        if reservation["created"]:
+            return {"run_id": reservation["run_id"], "status": "QUEUED",
+                    "task_status": "queued"}
+        return _summarize_state(reservation["run_id"])
 
     @app.get("/api/workflows/{run_id}")
     def get_workflow(run_id: str) -> dict:
         return _summarize_state(run_id)
 
-    @app.post("/api/workflows/{run_id}/approve")
-    def approve_workflow(run_id: str, req: ApprovalRequest) -> dict:
-        graph = get_graph()
-        config = {"configurable": {"thread_id": run_id}}
-        state = graph.get_state(config)
-        if not state.values:
-            raise HTTPException(404, f"工作流 {run_id} 不存在")
-        if not state.next or state.next[0] != "approval":
-            raise HTTPException(409, "工作流当前不在等待审批状态")
-        current_revision = state.values.get("draft_revision", 1)
-        if req.expected_revision != current_revision:
-            raise HTTPException(409, "简历草稿已更新，请刷新后重新审核")
-
-        # A paused draft is bound to the retrieved fact revisions, including rejection/regeneration.
+    @app.post("/api/workflows/{run_id}/cancel")
+    def cancel_workflow(run_id: str) -> dict:
         with get_conn() as conn:
-            for snapshot in state.values.get("retrieved_facts", []):
-                current = facts_repo.get_fact(conn, snapshot.id)
-                if current is None or not current.enabled or current.status != "confirmed" or current.revision != snapshot.revision:
-                    raise HTTPException(409, "Facts changed; create a new workflow to retrieve current confirmed facts")
+            with approvals_repo.workflow_lock(conn, run_id):
+                task = task_repo.get_task(conn, run_id)
+                if task is None:
+                    raise HTTPException(404, f"工作流 {run_id} 不存在")
+                if approvals_repo.get_approval(conn, run_id) is not None:
+                    raise HTTPException(409, "已批准的简历版本不能取消")
+                if task["status"] in ("completed", "failed"):
+                    raise HTTPException(409, "任务已结束，不能取消")
+                task_repo.request_cancel(conn, run_id)
+        worker.wake()
+        return _summarize_state(run_id)
 
-        graph.invoke(
-            Command(resume={"approved": req.approved, "feedback": req.feedback}),
-            config,
-        )
-        summary = _summarize_state(run_id)
+    def _pending_approval_response(conn, approval: dict) -> JSONResponse:
+        _sync_approval_run_status(conn, approval)
+        return JSONResponse(status_code=202, content=_approval_summary(approval))
 
-        if req.approved and summary["status"] == WorkflowStatus.READY_TO_APPLY:
-            job_id = graph.get_state(config).values.get("job_id")
-            version_id = _freeze_version(job_id, summary["sections"])
-            summary["resume_version_id"] = version_id
-        return summary
+    def _reconcile_approval(graph, conn, config: dict, approval: dict) -> dict | JSONResponse:
+        try:
+            state = graph.get_state(config)
+            if not state.values:
+                return _pending_approval_response(conn, approval)
+            if state.values.get("status") == WorkflowStatus.READY_TO_APPLY:
+                approvals_repo.set_graph_reconciled(conn, approval["run_id"])
+                approval["graph_reconciled"] = True
+                _sync_approval_run_status(conn, approval)
+                return _approval_summary(approval)
+            current_revision = state.values.get("draft_revision", 1)
+            if (not state.next or state.next[0] != "approval"
+                    or current_revision != approval["draft_revision"]):
+                return _pending_approval_response(conn, approval)
+
+            graph.invoke(Command(resume={"approved": True, "feedback": ""}), config)
+            state = graph.get_state(config)
+            if state.values and state.values.get("status") == WorkflowStatus.READY_TO_APPLY:
+                approvals_repo.set_graph_reconciled(conn, approval["run_id"])
+                approval["graph_reconciled"] = True
+                _sync_approval_run_status(conn, approval)
+                return _approval_summary(approval)
+        except Exception:
+            return _pending_approval_response(conn, approval)
+        return _pending_approval_response(conn, approval)
+
+    def _validate_retrieved_facts(conn, state) -> None:
+        for snapshot in state.values.get("retrieved_facts", []):
+            fact = facts_repo.get_fact(conn, snapshot.id)
+            if (fact is None or not fact.enabled or fact.status != "confirmed"
+                    or fact.revision != snapshot.revision):
+                raise HTTPException(
+                    409,
+                    "Facts changed; create a new workflow to retrieve current confirmed facts",
+                )
+
+    @app.post("/api/workflows/{run_id}/approve", response_model=None)
+    def approve_workflow(run_id: str, req: ApprovalRequest) -> dict | JSONResponse:
+        config = {"configurable": {"thread_id": run_id}}
+        rejected = False
+        with get_conn() as conn:
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    if not req.approved or req.expected_revision != approval["draft_revision"]:
+                        raise HTTPException(409, "该工作流已批准，不能修改审批决定")
+                    if approval["graph_reconciled"]:
+                        _sync_approval_run_status(conn, approval)
+                        return _approval_summary(approval)
+                    try:
+                        graph = get_graph()
+                    except Exception:
+                        return _pending_approval_response(conn, approval)
+                    return _reconcile_approval(graph, conn, config, approval)
+
+                task = task_repo.get_task(conn, run_id)
+                if task is not None and task["cancel_requested"]:
+                    raise HTTPException(409, "该工作流已取消")
+
+                graph = get_graph()
+                state = graph.get_state(config)
+                if not state.values:
+                    raise HTTPException(404, f"工作流 {run_id} 不存在")
+                if not state.next or state.next[0] != "approval":
+                    raise HTTPException(409, "工作流当前不在等待审批状态")
+                current_revision = state.values.get("draft_revision", 1)
+                if req.expected_revision != current_revision:
+                    raise HTTPException(409, "简历草稿已更新，请刷新后重新审核")
+
+                if not req.approved:
+                    _validate_retrieved_facts(conn, state)
+                    graph.invoke(
+                        Command(resume={"approved": False, "feedback": req.feedback}),
+                        config,
+                    )
+                    rejected = True
+                else:
+                    try:
+                        approval = approvals_repo.persist_approval(
+                            conn,
+                            run_id=run_id,
+                            draft_revision=req.expected_revision,
+                            job_id=state.values["job_id"],
+                            sections=state.values["resume"].model_dump(mode="json"),
+                            retrieved_facts=state.values["retrieved_facts"],
+                            job_snapshot=state.values.get("job_snapshot"),
+                        )
+                    except approvals_repo.ApprovalConflict as exc:
+                        raise HTTPException(409, str(exc)) from exc
+                    return _reconcile_approval(graph, conn, config, approval)
+
+        if rejected:
+            return _summarize_state(run_id)
+        raise HTTPException(500, "审批流程未完成")
 
     @app.post("/api/workflows/{run_id}/edit")
     def edit_workflow_draft(run_id: str, req: DraftEditRequest) -> dict:
-        graph = get_graph()
         config = {"configurable": {"thread_id": run_id}}
-        state = graph.get_state(config)
-        if not state.values:
-            raise HTTPException(404, f"工作流 {run_id} 不存在")
-        if not state.next or state.next[0] != "approval":
-            raise HTTPException(409, "工作流当前不在等待审核状态")
-        current_revision = state.values.get("draft_revision", 1)
-        if req.expected_revision != current_revision:
-            raise HTTPException(409, "简历草稿已更新，请刷新后重新编辑")
-
-        current = state.values["resume"]
-        edited_sections = {}
-        for section in ("education", "skills", "experience"):
-            claims = getattr(current, section)
-            texts = getattr(req.sections, section)
-            if len(texts) != len(claims):
-                raise HTTPException(422, f"{section} 分区的主张数量不能变更")
-            edited_sections[section] = [
-                claim.model_copy(update={"text": text})
-                for claim, text in zip(claims, texts, strict=True)
-            ]
-        edited = ResumeSections(**edited_sections)
-
         with get_conn() as conn:
-            for snapshot in state.values.get("retrieved_facts", []):
-                fact = facts_repo.get_fact(conn, snapshot.id)
-                if fact is None or not fact.enabled or fact.status != "confirmed" or fact.revision != snapshot.revision:
-                    raise HTTPException(409, "Facts changed; create a new workflow to retrieve current confirmed facts")
+            with approvals_repo.workflow_lock(conn, run_id):
+                if approvals_repo.get_approval(conn, run_id) is not None:
+                    raise HTTPException(409, "该工作流已批准，不能再编辑")
+                task = task_repo.get_task(conn, run_id)
+                if task is not None and task["cancel_requested"]:
+                    raise HTTPException(409, "该工作流已取消")
+                graph = get_graph()
+                state = graph.get_state(config)
+                if not state.values:
+                    raise HTTPException(404, f"工作流 {run_id} 不存在")
+                if not state.next or state.next[0] != "approval":
+                    raise HTTPException(409, "工作流当前不在等待审核状态")
+                current_revision = state.values.get("draft_revision", 1)
+                if req.expected_revision != current_revision:
+                    raise HTTPException(409, "简历草稿已更新，请刷新后重新编辑")
 
-        graph.invoke(
-            Command(resume={"edited_sections": edited.model_dump(mode="json")}),
-            config,
-        )
-        return _summarize_state(run_id)
-
-    def _freeze_version(job_id: int | None, sections: dict) -> int:
-        """批准后将分区简历冻结为不可变版本（第 8.3、8.5 节）。"""
-        conn = get_conn()
-        row = conn.execute(
-            "INSERT INTO resume_versions (job_id, content, status) "
-            "VALUES (%s, %s, 'approved') RETURNING id",
-            (job_id, json.dumps({"sections": sections})),
-        ).fetchone()
-        for section_claims in sections.values():
-            for claim in section_claims:
-                conn.execute(
-                    "INSERT INTO resume_claims (version_id, text, fact_ids, matched_requirements) "
-                    "VALUES (%s, %s, %s, %s)",
-                    (
-                        row["id"],
-                        claim["text"],
-                        claim["fact_ids"],
-                        claim.get("matched_requirements", []),
-                    ),
+                current = state.values["resume"]
+                edited_sections = {}
+                for section in ("education", "skills", "experience"):
+                    claims = getattr(current, section)
+                    texts = getattr(req.sections, section)
+                    if len(texts) != len(claims):
+                        raise HTTPException(422, f"{section} 分区的主张数量不能变更")
+                    edited_sections[section] = [
+                        claim.model_copy(update={"text": text})
+                        for claim, text in zip(claims, texts, strict=True)
+                    ]
+                edited = ResumeSections(**edited_sections)
+                _validate_retrieved_facts(conn, state)
+                graph.invoke(
+                    Command(resume={"edited_sections": edited.model_dump(mode="json")}),
+                    config,
                 )
-        return row["id"]
+        return _summarize_state(run_id)
 
     # ---------- 简历版本 ----------
 
     @app.get("/api/resume-versions/{version_id}/docx")
     def export_docx(version_id: int) -> Response:
-        conn = get_conn()
-        version = conn.execute(
-            "SELECT rv.content, j.title FROM resume_versions rv "
-            "JOIN jobs j ON j.id = rv.job_id WHERE rv.id = %s",
-            (version_id,),
-        ).fetchone()
+        with get_conn() as conn:
+            version = conn.execute(
+                "SELECT rv.content, j.title FROM resume_versions rv "
+                "JOIN jobs j ON j.id = rv.job_id "
+                "WHERE rv.id = %s AND rv.status = 'approved'",
+                (version_id,),
+            ).fetchone()
         if version is None:
             raise HTTPException(404, f"简历版本 {version_id} 不存在")
-        sections = ResumeSections.model_validate(version["content"]["sections"])
-        data = render_docx(version["title"] or "未命名职位", sections)
+        saved = version["content"]
+        job_title = (saved.get("job_snapshot") or {}).get("title") or version["title"] or "未命名职位"
+        sections = ResumeSections.model_validate(saved["sections"])
+        frozen_profile = saved.get("profile_snapshot")
+        data = render_docx(job_title, sections,
+                           profile=frozen_profile["data"] if frozen_profile else None)
         return Response(
             content=data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -657,7 +906,12 @@ def create_app(
     def index(request: Request) -> HTMLResponse:
         conn = get_conn()
         runs = conn.execute(
-            "SELECT id, status, retry_count, updated_at FROM workflow_runs "
+            "SELECT wr.id, CASE WHEN a.run_id IS NOT NULL THEN wr.status "
+            "WHEN t.run_id IS NOT NULL THEN upper(t.status) ELSE wr.status END AS status, "
+            "wr.retry_count, GREATEST(wr.updated_at, COALESCE(t.updated_at, wr.updated_at)) "
+            "AS updated_at FROM workflow_runs wr "
+            "LEFT JOIN workflow_tasks t ON t.run_id=wr.id "
+            "LEFT JOIN workflow_approvals a ON a.run_id=wr.id "
             "ORDER BY updated_at DESC LIMIT 50"
         ).fetchall()
         jobs = conn.execute(
@@ -671,54 +925,136 @@ def create_app(
     @app.get("/review/{run_id}", response_class=HTMLResponse)
     def review(request: Request, run_id: str) -> HTMLResponse:
         summary = _summarize_state(run_id)
-        conn = get_conn()
+        with get_conn() as conn:
+            with approvals_repo.workflow_lock(conn, run_id):
+                approval = approvals_repo.get_approval(conn, run_id)
+                if approval is not None:
+                    _sync_approval_run_status(conn, approval)
+                    summary = _approval_summary(approval)
+            frozen_facts = ({fact["id"]: fact["snapshot"]
+                             for fact in approval["package"]["facts"]}
+                            if approval is not None else {})
 
-        def with_facts(claims: list[dict]) -> list[dict]:
-            result = []
-            for claim in claims:
-                cited = []
-                for fid in claim["fact_ids"]:
-                    fact = facts_repo.get_fact(conn, fid)
-                    if fact:
-                        cited.append(fact.model_dump(mode="json"))
-                result.append({**claim, "facts": cited})
-            return result
+            def with_facts(claims: list[dict]) -> list[dict]:
+                result = []
+                for claim in claims:
+                    cited = []
+                    for fid in claim["fact_ids"]:
+                        if approval is not None:
+                            fact = frozen_facts.get(fid)
+                            if fact is not None:
+                                cited.append(fact)
+                        else:
+                            fact = facts_repo.get_fact(conn, fid)
+                            if fact:
+                                cited.append(fact.model_dump(mode="json"))
+                    result.append({**claim, "facts": cited})
+                return result
 
-        sections = summary["sections"] or {}
-        previous_sections = summary["previous_sections"] or {}
-        section_titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
-        changes = []
-        for name, title in section_titles.items():
-            before = previous_sections.get(name, [])
-            after = sections.get(name, [])
-            for index in range(max(len(before), len(after))):
-                old_text = before[index]["text"] if index < len(before) else ""
-                new_text = after[index]["text"] if index < len(after) else ""
-                if old_text != new_text:
-                    changes.append({"section": title, "before": old_text, "after": new_text})
-        context = {
-            name: with_facts(sections.get(name, []))
-            for name in ("education", "skills", "experience")
-        }
-        total = sum(len(v) for v in context.values())
-        return TEMPLATES.TemplateResponse(
-            request, "review.html", {
-                "run_id": run_id, "sections": context, "total": total,
-                "draft_revision": summary["draft_revision"], "changes": changes,
-                "validation_errors": summary["validation_errors"],
-                "status": summary["status"],
-                "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
+            sections = summary["sections"] or {}
+            previous_sections = summary["previous_sections"] or {}
+            section_titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
+            changes = []
+            for name, title in section_titles.items():
+                before = previous_sections.get(name, [])
+                after = sections.get(name, [])
+                for index in range(max(len(before), len(after))):
+                    old_text = before[index]["text"] if index < len(before) else ""
+                    new_text = after[index]["text"] if index < len(after) else ""
+                    if old_text != new_text:
+                        changes.append({"section": title, "before": old_text, "after": new_text})
+            context = {
+                name: with_facts(sections.get(name, []))
+                for name in ("education", "skills", "experience")
             }
-        )
+            profile_row = conn.execute("SELECT status FROM profile WHERE id=1").fetchone()
+            total = sum(len(v) for v in context.values())
+            return TEMPLATES.TemplateResponse(
+                request, "review.html", {
+                    "run_id": run_id, "sections": context, "total": total,
+                    "draft_revision": summary["draft_revision"], "changes": changes,
+                    "validation_errors": summary["validation_errors"],
+                    "status": summary["status"],
+                    "can_review": summary["status"] == WorkflowStatus.WAITING_APPROVAL and summary["waiting"],
+                    "resume_version_id": summary.get("resume_version_id"),
+                    "approval_reconciliation_pending": summary.get("approval_reconciliation_pending", False),
+                    "profile_confirmed": bool(profile_row and profile_row["status"] == "confirmed"),
+                    "profile_in_version": bool(approval and approval["package"].get("profile_snapshot")),
+                }
+            )
 
     # ---------- 投递记录 ----------
 
+    @app.get("/applications", response_class=HTMLResponse)
+    def applications_page(request: Request, version_id: int | None = Query(default=None, gt=0)) -> HTMLResponse:
+        with get_conn() as conn:
+            approved_versions = conn.execute(
+                "SELECT wa.version_id, rv.job_id, "
+                "COALESCE(rv.content->'job_snapshot'->>'company',j.company) AS company, "
+                "COALESCE(rv.content->'job_snapshot'->>'title',j.title) AS title "
+                "FROM workflow_approvals wa "
+                "JOIN resume_versions rv ON rv.id=wa.version_id "
+                "JOIN jobs j ON j.id=rv.job_id "
+                "ORDER BY (wa.version_id=%s) DESC NULLS LAST, "
+                "wa.approved_at DESC, wa.version_id DESC LIMIT 100",
+                (version_id,),
+            ).fetchall()
+        return TEMPLATES.TemplateResponse(request, "applications.html", {
+            "approved_versions": approved_versions, "selected_version_id": version_id,
+        })
+
     @app.get("/api/applications")
     def list_applications() -> list[dict]:
-        rows = get_conn().execute(
-            "SELECT * FROM applications ORDER BY created_at DESC LIMIT 100"
-        ).fetchall()
-        return [{k: str(v) for k, v in r.items()} for r in rows]
+        with get_conn() as conn:
+            return application_repo.list_applications(conn)
+
+    @app.get("/api/applications/{application_id}")
+    def get_application(application_id: int) -> dict:
+        with get_conn() as conn:
+            record = application_repo.get_application(conn, application_id)
+        if record is None:
+            raise HTTPException(404, "Application record not found")
+        return record
+
+    @app.post("/api/applications", status_code=201)
+    def create_application(req: ApplicationCreateRequest,
+                           idempotency_key: str = Header()) -> dict:
+        if (len(idempotency_key) > 128 or not idempotency_key.strip()
+                or any(ord(char) < 32 for char in idempotency_key)):
+            raise HTTPException(422, "Idempotency-Key must be 1-128 printable characters")
+        try:
+            with get_conn() as conn:
+                return application_repo.create_application(
+                    conn, job_id=req.job_id, version_id=req.version_id,
+                    channel=req.channel, status=req.status,
+                    occurred_at=req.occurred_at, result=req.result,
+                    idempotency_key=idempotency_key,
+                )
+        except application_repo.ApplicationConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.patch("/api/applications/{application_id}")
+    def update_application(application_id: int, req: ApplicationUpdateRequest) -> dict:
+        if not req.model_fields_set.intersection({"status", "occurred_at", "result"}):
+            raise HTTPException(422, "At least one result field is required")
+        try:
+            with get_conn() as conn:
+                current = application_repo.get_application(conn, application_id)
+                if current is None:
+                    raise application_repo.ApplicationNotFound(
+                        f"application {application_id} does not exist"
+                    )
+                return application_repo.update_application(
+                    conn, application_id, expected_revision=req.expected_revision,
+                    status=req.status if req.status is not None else current["status"],
+                    occurred_at=(req.occurred_at if "occurred_at" in req.model_fields_set
+                                 else current["occurred_at"]),
+                    result=req.result if req.result is not None else current["result"],
+                )
+        except application_repo.ApplicationNotFound as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except application_repo.ApplicationConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     return app
 

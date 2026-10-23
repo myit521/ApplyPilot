@@ -46,11 +46,30 @@ def schema_ready(conn: psycopg.Connection) -> bool:
         return False
     tables = conn.execute(
         "SELECT bool_and(to_regclass(name) IS NOT NULL) AS ready "
-        "FROM unnest(ARRAY['fact_revisions','profile','profile_revisions']) AS tables(name)"
+        "FROM unnest(ARRAY['fact_revisions','profile','profile_revisions',"
+        "'workflow_approvals','resume_version_facts','workflow_tasks']) AS tables(name)"
     ).fetchone()
     if not tables["ready"]:
         return False
-    return bool(conn.execute("SELECT 1 FROM schema_migrations WHERE version='002_fact_confirmation.sql'").fetchone())
+    if not conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='002_fact_confirmation.sql'"
+    ).fetchone():
+        return False
+    if not conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='003_atomic_approval_snapshot.sql'"
+    ).fetchone():
+        return False
+    if not conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='004_workflow_tasks.sql'"
+    ).fetchone():
+        return False
+    if not conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='005_manual_applications.sql'"
+    ).fetchone():
+        return False
+    return bool(conn.execute(
+        "SELECT 1 FROM schema_migrations WHERE version='006_task_job_snapshot.sql'"
+    ).fetchone())
 
 
 if __name__ == "__main__":

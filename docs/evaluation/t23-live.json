@@ -1,0 +1,210 @@
+{
+  "run": {
+    "at_utc": "2026-10-14T06:29:41.935463+00:00",
+    "source_commit": "6437c79174d20c10aa84ec3ff9191229dfc4ed95",
+    "model_requested": "deepseek-chat",
+    "temperature": 0.2,
+    "request_cap": 2,
+    "attempted_requests": 2,
+    "max_output_tokens_per_request": 1000,
+    "transport_retries": 0,
+    "status": "complete",
+    "synthetic_only": true
+  },
+  "fixtures_sha256": {
+    "t23_repair_cases": "d2cad76fd6a3d0b97a639a8747f5d9a23239fca6c68ce95fe0a1aa987b95cefe",
+    "t18_report": "cfc3160a622bc3755a197ee592aac58ca93165e49ef13794caf5adaf83fbabc3"
+  },
+  "cases": [
+    {
+      "id": "s-h12",
+      "mode": "seeded_repair",
+      "jd_text": "校招后端（武汉）：面向 2027 届本科生，不限制实习经历；参与接口设计。",
+      "seeded_first_response": true,
+      "parser_calls": 2,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 580,
+            "completion_tokens": 134,
+            "total_tokens": 714
+          },
+          "parser_call": 2,
+          "user_prompt_chars": 732,
+          "parsed_structure": {
+            "job_title": "校招后端",
+            "job_category": "后端开发",
+            "location": "武汉",
+            "required": [
+              "面向 2027 届本科生"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "参与接口设计"
+            ],
+            "keywords": [
+              {
+                "term": "后端",
+                "importance": "required"
+              },
+              {
+                "term": "接口设计",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "本科生",
+            "graduation_time_requirement": "2027 届",
+            "experience_requirement": "",
+            "unknowns": [
+              "具体技术栈",
+              "薪资待遇",
+              "招聘人数",
+              "是否接受往届生"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "校招后端",
+        "job_category": "后端开发",
+        "location": "武汉",
+        "required": [
+          "面向 2027 届本科生"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "参与接口设计"
+        ],
+        "keywords": [
+          {
+            "term": "后端",
+            "importance": "required"
+          },
+          {
+            "term": "接口设计",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "本科生",
+        "graduation_time_requirement": "2027 届",
+        "experience_requirement": "",
+        "unknowns": [
+          "具体技术栈",
+          "薪资待遇",
+          "招聘人数",
+          "是否接受往届生"
+        ]
+      },
+      "obligation_failures": [
+        "promoted_nonrequirement:后端"
+      ],
+      "repair_attempted": true
+    },
+    {
+      "id": "s-h20",
+      "mode": "seeded_repair",
+      "jd_text": "移动服务后端：Java 为必备；GraphQL 可选；负责支持幂等重试的接口。",
+      "seeded_first_response": true,
+      "parser_calls": 2,
+      "calls": [
+        {
+          "http_status": 200,
+          "model": "deepseek-flash",
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 584,
+            "completion_tokens": 143,
+            "total_tokens": 727
+          },
+          "parser_call": 2,
+          "user_prompt_chars": 777,
+          "parsed_structure": {
+            "job_title": "移动服务后端",
+            "job_category": "",
+            "location": "",
+            "required": [
+              "Java 为必备"
+            ],
+            "preferred": [],
+            "responsibilities": [
+              "负责支持幂等重试的接口"
+            ],
+            "keywords": [
+              {
+                "term": "Java",
+                "importance": "required"
+              },
+              {
+                "term": "GraphQL",
+                "importance": "mentioned"
+              },
+              {
+                "term": "幂等重试",
+                "importance": "mentioned"
+              }
+            ],
+            "education_requirement": "",
+            "graduation_time_requirement": "",
+            "experience_requirement": "",
+            "unknowns": [
+              "职位类别",
+              "工作地点",
+              "学历要求",
+              "毕业时间要求",
+              "实习或项目经验要求"
+            ]
+          }
+        }
+      ],
+      "outcome": "accepted",
+      "observed": {
+        "job_title": "移动服务后端",
+        "job_category": "",
+        "location": "",
+        "required": [
+          "Java 为必备"
+        ],
+        "preferred": [],
+        "responsibilities": [
+          "负责支持幂等重试的接口"
+        ],
+        "keywords": [
+          {
+            "term": "Java",
+            "importance": "required"
+          },
+          {
+            "term": "GraphQL",
+            "importance": "mentioned"
+          },
+          {
+            "term": "幂等重试",
+            "importance": "mentioned"
+          }
+        ],
+        "education_requirement": "",
+        "graduation_time_requirement": "",
+        "experience_requirement": "",
+        "unknowns": [
+          "职位类别",
+          "工作地点",
+          "学历要求",
+          "毕业时间要求",
+          "实习或项目经验要求"
+        ]
+      },
+      "obligation_failures": [],
+      "repair_attempted": true
+    }
+  ],
+  "limits": [
+    "Selected known regressions cannot estimate natural error rates.",
+    "Seeded repair replaces the first response with frozen T18 output.",
+    "Obligations check selected substrings, not full semantic correctness.",
+    "Raw completion, credentials, and real candidate information are not stored."
+  ]
+}

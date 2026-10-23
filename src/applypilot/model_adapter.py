@@ -14,6 +14,10 @@ class ModelError(Exception):
     """模型调用失败（超时、限流、服务异常等），节点可据此重试。"""
 
 
+class RetryableModelError(ModelError):
+    """Transient model failure eligible for the task worker's bounded retry."""
+
+
 class ModelAdapter(Protocol):
     def complete(self, system: str, user: str) -> str:
         """调用模型并返回原始文本输出。"""

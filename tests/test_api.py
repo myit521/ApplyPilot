@@ -6,12 +6,16 @@
 
 import json
 import time
+import uuid
+from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
 from testcontainers.postgres import PostgresContainer
 
-from applypilot import db, embeddings
+from applypilot import db, embeddings, task_repo
 from applypilot.api import create_app
 
 pytestmark = pytest.mark.integration
@@ -51,11 +55,12 @@ CLAIMS_JSON = json.dumps({
 class FakeAdapter:
     def __init__(self):
         self.fact_id = None
+        self.jd_json = JD_JSON
         self.generation_prompts = []
 
     def complete(self, system: str, user: str) -> str:
         if "职位描述解析器" in system:
-            return JD_JSON
+            return self.jd_json
         if "事实提取器" in system:
             return FACTS_JSON
         if "事实一致性复核员" in system:
@@ -75,6 +80,7 @@ def client():
             app = create_app(dsn=dsn, adapter=adapter)
             with TestClient(app) as c:
                 c.adapter = adapter
+                c.database_dsn = dsn
                 yield c
 
 
@@ -201,14 +207,17 @@ def test_full_api_flow(client: TestClient):
     resp = client.post(
         f"/api/workflows/{run_id}/approve", json={"approved": True, "expected_revision": 3}
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
+    assert resp.json()["resume_version_id"] == version_id
+    assert resp.json()["content_sha256"] == result["content_sha256"]
+    assert client.post(f"/api/workflows/{run_id}/cancel").status_code == 409
 
     # 11. 审核页面
     resp = client.get("/")
     assert resp.status_code == 200 and "审核台" in resp.text
     resp = client.get(f"/review/{run_id}")
     assert resp.status_code == 200
-    assert "承担批量执行模块开发" in resp.text
+    assert "参与批量执行模块开发，交付 6 个批量接口" in resp.text
 
 
 def test_workflow_idempotency(client: TestClient):
@@ -226,6 +235,121 @@ def test_workflow_idempotency(client: TestClient):
     )
     # 相同幂等键返回同一个运行，而不是新建
     assert resp2.json()["run_id"] == run_id
+
+
+def test_workflow_key_cannot_be_reused_for_another_job(client: TestClient):
+    jobs = [client.post("/api/jobs", json={
+        "title": "Java 后端", "company": "模拟公司", "raw_text": f"职位 {i}",
+    }).json()["id"] for i in range(2)]
+    key = f"t8-different-job-{uuid.uuid4().hex}"
+    first = client.post(
+        "/api/workflows", json={"job_id": jobs[0]}, headers={"Idempotency-Key": key}
+    )
+    assert first.status_code == 202
+    second = client.post(
+        "/api/workflows", json={"job_id": jobs[1]}, headers={"Idempotency-Key": key}
+    )
+    assert second.status_code == 409
+    with db.connect(client.database_dsn) as conn:
+        assert conn.execute(
+            "SELECT count(*) AS n FROM workflow_tasks WHERE idempotency_key=%s", (key,)
+        ).fetchone()["n"] == 1
+
+
+def test_duplicate_create_reports_persisted_retry_state(client: TestClient):
+    job_id = client.post("/api/jobs", json={
+        "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 retry status",
+    }).json()["id"]
+    key = f"t8-retry-{uuid.uuid4().hex}"
+    with db.connect(client.database_dsn) as conn:
+        run_id = task_repo.reserve_workflow_task(
+            conn, job_id=job_id, idempotency_key=key
+        )["run_id"]
+        conn.execute(
+            "UPDATE workflow_tasks SET status='retry_wait', "
+            "next_attempt_at=now() + interval '1 hour' WHERE run_id=%s",
+            (run_id,),
+        )
+    response = client.post(
+        "/api/workflows", json={"job_id": job_id}, headers={"Idempotency-Key": key}
+    )
+    assert response.status_code == 202
+    assert response.json()["run_id"] == run_id
+    assert response.json()["status"] == "RETRY_WAIT"
+    assert response.json()["task_status"] == "retry_wait"
+
+
+def test_queued_task_is_visible_and_can_be_cancelled(client: TestClient):
+    original_complete = client.adapter.complete
+    entered, release = Event(), Event()
+
+    def blocking_complete(system: str, user: str) -> str:
+        if "职位描述解析器" in system and "T8 blocking job" in user:
+            entered.set()
+            assert release.wait(15)
+        return original_complete(system, user)
+
+    client.adapter.complete = blocking_complete
+    try:
+        busy_job = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 blocking job",
+        }).json()["id"]
+        busy_run = client.post("/api/workflows", json={"job_id": busy_job}).json()["run_id"]
+        assert entered.wait(10)
+
+        queued_job = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 queued job",
+        }).json()["id"]
+        queued_run = client.post("/api/workflows", json={"job_id": queued_job}).json()["run_id"]
+        queued = client.get(f"/api/workflows/{queued_run}")
+        assert queued.status_code == 200
+        assert queued.json()["status"] == "QUEUED"
+        cancelled = client.post(f"/api/workflows/{queued_run}/cancel")
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "CANCELLED"
+        with db.connect(client.database_dsn) as conn:
+            assert conn.execute(
+                "SELECT status FROM workflow_tasks WHERE run_id=%s", (queued_run,)
+            ).fetchone()["status"] == "cancelled"
+    finally:
+        release.set()
+        client.adapter.complete = original_complete
+
+
+def test_cancel_during_model_call_stops_next_graph_step(client: TestClient):
+    original_complete = client.adapter.complete
+    entered, release = Event(), Event()
+
+    def blocking_complete(system: str, user: str) -> str:
+        if "职位描述解析器" in system and "T8 cancel running" in user:
+            entered.set()
+            assert release.wait(15)
+        return original_complete(system, user)
+
+    client.adapter.complete = blocking_complete
+    try:
+        job_id = client.post("/api/jobs", json={
+            "title": "Java 后端", "company": "模拟公司", "raw_text": "T8 cancel running",
+        }).json()["id"]
+        run_id = client.post("/api/workflows", json={"job_id": job_id}).json()["run_id"]
+        assert entered.wait(10)
+        requested = client.post(f"/api/workflows/{run_id}/cancel")
+        assert requested.status_code == 200
+        release.set()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            state = client.get(f"/api/workflows/{run_id}").json()
+            if state["status"] == "CANCELLED":
+                break
+            time.sleep(0.1)
+        assert state["status"] == "CANCELLED"
+        assert client.post(
+            f"/api/workflows/{run_id}/approve",
+            json={"approved": True, "expected_revision": 1},
+        ).status_code == 409
+    finally:
+        release.set()
+        client.adapter.complete = original_complete
 
 
 def test_unknown_resources_404(client: TestClient):
@@ -249,3 +373,456 @@ def test_readiness_rejects_uninitialized_business_schema():
             with db.connect(dsn) as conn:
                 db.init_schema(conn)
             assert client.get("/health/ready").status_code == 200
+
+
+def reach_waiting_approval(client: TestClient) -> tuple[str, str]:
+    unique_term = f"T7Unique{uuid.uuid4().hex}"
+    client.adapter.jd_json = json.dumps({
+        "job_title": "Java 后端开发",
+        "required": ["熟悉 Java"],
+        "preferred": [],
+        "responsibilities": ["参与后端开发"],
+        "keywords": [
+            {"term": "Java", "importance": "required"},
+            {"term": unique_term, "importance": "preferred"},
+        ],
+        "unknowns": [],
+    })
+    fact = client.post("/api/facts", json={
+        "fact_type": "project", "source_name": f"T7 fixture {unique_term}",
+        "content": f"Built batch API {unique_term}", "skills": ["Java", unique_term],
+        "metrics": ["6 个批量接口"],
+    }).json()
+    client.adapter.fact_id = fact["id"]
+    confirmed = client.post(f"/api/facts/{fact['id']}/confirm",
+                            json={"expected_revision": fact["revision"]})
+    assert confirmed.status_code == 200
+    job = client.post("/api/jobs", json={
+        "title": "Java 后端", "company": "T7 fixture",
+        "raw_text": f"Java 后端工程师 {unique_term}",
+    }).json()
+    run_id = client.post("/api/workflows", json={"job_id": job["id"]}).json()["run_id"]
+    state = wait_for_status(client, run_id)
+    assert state["status"] == "WAITING_APPROVAL", state
+    return run_id, fact["id"]
+
+
+def test_approval_retry_reconciles_checkpoint_without_duplicate_rows(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_failing_once(*args, **kwargs):
+        nonlocal failed
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __init__(self, wrapped):
+                self.wrapped = wrapped
+
+            def __getattr__(self, name):
+                return getattr(self.wrapped, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return self.wrapped.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy(graph)
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_once)
+    first = client.post(f"/api/workflows/{run_id}/approve",
+                        json={"approved": True, "expected_revision": 1})
+    assert first.status_code == 202
+    version_id = first.json()["resume_version_id"]
+
+    def graph_unavailable(*args, **kwargs):
+        raise RuntimeError("checkpoint unavailable")
+
+    monkeypatch.setattr(api, "build_graph", graph_unavailable)
+    pending_retry = client.post(f"/api/workflows/{run_id}/approve",
+                                json={"approved": True, "expected_revision": 1})
+    assert pending_retry.status_code == 202
+    assert pending_retry.json()["resume_version_id"] == version_id
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_once)
+    second = client.post(f"/api/workflows/{run_id}/approve",
+                         json={"approved": True, "expected_revision": 1})
+    assert second.status_code == 200
+    assert second.json()["resume_version_id"] == version_id
+    assert second.json()["content_sha256"] == first.json()["content_sha256"]
+
+    monkeypatch.setattr(api, "build_graph", graph_unavailable)
+    third = client.post(f"/api/workflows/{run_id}/approve",
+                        json={"approved": True, "expected_revision": 1})
+    assert third.status_code == 200
+    assert third.json()["resume_version_id"] == version_id
+    with db.connect(client.database_dsn) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM workflow_approvals WHERE run_id=%s",
+                            (run_id,)).fetchone()["n"] == 1
+        assert conn.execute(
+            "SELECT count(*) AS n FROM resume_versions rv "
+            "JOIN workflow_approvals wa ON wa.version_id=rv.id "
+            "WHERE wa.run_id=%s AND rv.status='approved'",
+            (run_id,),
+        ).fetchone()["n"] == 1
+        assert conn.execute("SELECT count(*) AS n FROM audit_events WHERE event_type='resume.approved' "
+                            "AND payload->>'run_id'=%s", (run_id,)).fetchone()["n"] == 1
+
+
+def test_pending_approval_summary_survives_checkpoint_read_failure(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_failing_invoke_once(*args, **kwargs):
+        nonlocal failed
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return graph.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_invoke_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+
+    def build_graph_unreadable_state(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+
+        class StateReadProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def get_state(self, *state_args, **state_kwargs):
+                raise RuntimeError("checkpoint unavailable")
+
+        return StateReadProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_unreadable_state)
+    summary = client.get(f"/api/workflows/{run_id}")
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "APPROVAL_RECONCILIATION_PENDING"
+    assert summary.json()["approval_reconciliation_pending"] is True
+    assert summary.json()["resume_version_id"] == approved.json()["resume_version_id"]
+    assert summary.json()["waiting"] is False
+    with db.connect(client.database_dsn) as conn:
+        run = conn.execute("SELECT status FROM workflow_runs WHERE id=%s", (run_id,)).fetchone()
+        assert run["status"] == "APPROVAL_RECONCILIATION_PENDING"
+
+
+def test_pending_summary_does_not_overwrite_completed_reconciliation(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_failing_invoke_once(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return graph.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_failing_invoke_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+    monkeypatch.setattr(api, "build_graph", real_build_graph)
+
+    reconciliation_locked = Event()
+    finish_reconciliation = Event()
+    reconciliation_done = Event()
+    summary_read_approval = Event()
+    summary_attempted_lock = Event()
+    real_workflow_lock = api.approvals_repo.workflow_lock
+    real_get_approval = api.approvals_repo.get_approval
+
+    @contextmanager
+    def track_summary_lock(conn, target_run_id):
+        if target_run_id == run_id:
+            summary_attempted_lock.set()
+        with real_workflow_lock(conn, target_run_id):
+            yield
+
+    def pause_summary_after_approval_read(conn, target_run_id):
+        approval = real_get_approval(conn, target_run_id)
+        if target_run_id == run_id:
+            summary_read_approval.set()
+            assert reconciliation_done.wait(timeout=10)
+        return approval
+
+    monkeypatch.setattr(api.approvals_repo, "workflow_lock", track_summary_lock)
+    monkeypatch.setattr(api.approvals_repo, "get_approval", pause_summary_after_approval_read)
+
+    def reconcile_approval():
+        with db.connect(client.database_dsn) as conn:
+            with real_workflow_lock(conn, run_id):
+                reconciliation_locked.set()
+                assert finish_reconciliation.wait(timeout=10)
+                api.approvals_repo.set_graph_reconciled(conn, run_id)
+                conn.execute(
+                    "UPDATE workflow_runs SET current_node='', status='READY_TO_APPLY', "
+                    "error='', updated_at=now() WHERE id=%s",
+                    (run_id,),
+                )
+                reconciliation_done.set()
+
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="reconciler") as reconcile_pool:
+        reconciliation = reconcile_pool.submit(reconcile_approval)
+        try:
+            assert reconciliation_locked.wait(timeout=5)
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="summary-request") as summary_pool:
+                summary_request = summary_pool.submit(client.get, f"/api/workflows/{run_id}")
+                deadline = time.monotonic() + 5
+                while (not summary_read_approval.is_set() and not summary_attempted_lock.is_set()
+                       and time.monotonic() < deadline):
+                    time.sleep(0.01)
+                assert summary_read_approval.is_set() or summary_attempted_lock.is_set()
+                finish_reconciliation.set()
+                reconciliation.result(timeout=5)
+                summary = summary_request.result(timeout=5)
+        finally:
+            finish_reconciliation.set()
+
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "READY_TO_APPLY"
+    assert summary.json()["approval_reconciliation_pending"] is False
+    with db.connect(client.database_dsn) as conn:
+        status = conn.execute("SELECT status FROM workflow_runs WHERE id=%s",
+                              (run_id,)).fetchone()["status"]
+        assert status == "READY_TO_APPLY"
+
+
+def test_workflow_summary_does_not_overwrite_concurrent_approval(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    approval = None
+
+    def build_graph_approving_during_state_read(*args, **kwargs):
+        graph = real_build_graph(*args, **kwargs)
+
+        class StateReadProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def get_state(self, *state_args, **state_kwargs):
+                nonlocal approval
+                state = graph.get_state(*state_args, **state_kwargs)
+                if approval is None:
+                    with db.connect(client.database_dsn) as conn:
+                        approval = api.approvals_repo.persist_approval(
+                            conn,
+                            run_id=run_id,
+                            draft_revision=state.values["draft_revision"],
+                            job_id=state.values["job_id"],
+                            sections=state.values["resume"].model_dump(mode="json"),
+                            retrieved_facts=state.values["retrieved_facts"],
+                        )
+                return state
+
+        return StateReadProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_approving_during_state_read)
+    summary = client.get(f"/api/workflows/{run_id}")
+    assert summary.status_code == 200
+    assert summary.json()["status"] == "APPROVAL_RECONCILIATION_PENDING"
+    assert summary.json()["resume_version_id"] == approval["version_id"]
+    with db.connect(client.database_dsn) as conn:
+        status = conn.execute("SELECT status FROM workflow_runs WHERE id=%s",
+                              (run_id,)).fetchone()["status"]
+        assert status == "APPROVAL_RECONCILIATION_PENDING"
+    review = client.get(f"/review/{run_id}")
+    assert 'id="approval-pending"' in review.text
+    assert 'id="approve"' not in review.text
+    assert 'id="reject"' not in review.text
+
+
+def test_two_concurrent_approvals_return_one_version(client):
+    run_id, _ = reach_waiting_approval(client)
+    body = {"approved": True, "expected_revision": 1}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(
+            lambda _: client.post(f"/api/workflows/{run_id}/approve", json=body), range(2)
+        ))
+    assert [response.status_code for response in responses] == [200, 200]
+    assert len({response.json()["resume_version_id"] for response in responses}) == 1
+    assert len({response.json()["content_sha256"] for response in responses}) == 1
+
+
+def test_stale_approval_writes_no_version(client):
+    run_id, _ = reach_waiting_approval(client)
+    response = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 99})
+    assert response.status_code == 409
+    with db.connect(client.database_dsn) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM workflow_approvals WHERE run_id=%s",
+                            (run_id,)).fetchone()["n"] == 0
+
+
+def test_changed_fact_revision_blocks_approval_without_record(client):
+    run_id, fact_id = reach_waiting_approval(client)
+    fact = next(item for item in client.get("/api/facts", params={"enabled": "false"}).json()
+                if item["id"] == fact_id)
+    changed = client.put(f"/api/facts/{fact_id}", json={
+        "expected_revision": fact["revision"], "content": "Changed after retrieval",
+    })
+    assert changed.status_code == 200
+    response = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert response.status_code == 409
+    with db.connect(client.database_dsn) as conn:
+        assert conn.execute("SELECT count(*) AS n FROM workflow_approvals WHERE run_id=%s",
+                            (run_id,)).fetchone()["n"] == 0
+
+
+def test_edit_and_approval_are_serialized_for_one_revision(client):
+    run_id, _ = reach_waiting_approval(client)
+    state = client.get(f"/api/workflows/{run_id}").json()
+    sections = {name: [claim["text"] for claim in state["sections"][name]]
+                for name in ("education", "skills", "experience")}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        edit = pool.submit(client.post, f"/api/workflows/{run_id}/edit",
+                           json={"expected_revision": 1, "sections": sections})
+        approve = pool.submit(client.post, f"/api/workflows/{run_id}/approve",
+                              json={"approved": True, "expected_revision": 1})
+        responses = [edit.result(), approve.result()]
+    assert sorted(response.status_code for response in responses) == [200, 409]
+
+
+def test_approved_docx_and_review_use_frozen_job_and_fact_snapshots(client):
+    run_id, fact_id = reach_waiting_approval(client)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1}).json()
+    version_id = approved["resume_version_id"]
+    fact = next(item for item in client.get("/api/facts", params={"enabled": "false"}).json()
+                if item["id"] == fact_id)
+    changed_fact = client.put(f"/api/facts/{fact_id}", json={
+        "expected_revision": fact["revision"], "content": "Changed after approval",
+    })
+    assert changed_fact.status_code == 200
+    with db.connect(client.database_dsn) as conn:
+        conn.execute("UPDATE jobs SET title='Changed title', raw_text='Changed JD' "
+                     "WHERE id=(SELECT rv.job_id FROM workflow_approvals wa "
+                     "JOIN resume_versions rv ON rv.id=wa.version_id WHERE wa.run_id=%s)",
+                     (run_id,))
+        frozen_fact = conn.execute(
+            "SELECT snapshot FROM resume_version_facts WHERE version_id=%s AND fact_id=%s",
+            (version_id, fact_id),
+        ).fetchone()["snapshot"]
+        assert frozen_fact["content"].startswith("Built batch API")
+
+    response = client.get(f"/api/resume-versions/{version_id}/docx")
+    assert response.status_code == 200
+    from io import BytesIO
+    from docx import Document
+
+    text = "\n".join(p.text for p in Document(BytesIO(response.content)).paragraphs)
+    assert "Java 后端" in text
+    assert "Changed title" not in text
+    review_page = client.get(f"/review/{run_id}")
+    assert review_page.status_code == 200
+    assert "Built batch API" in review_page.text
+    assert "Changed after approval" not in review_page.text
+
+
+def test_pending_approval_page_has_recovery_without_edit_or_decision_controls(client, monkeypatch):
+    run_id, _ = reach_waiting_approval(client)
+    import applypilot.api as api
+
+    real_build_graph = api.build_graph
+    failed = False
+
+    def build_graph_invoke_failing_once(*args, **kwargs):
+        nonlocal failed
+        graph = real_build_graph(*args, **kwargs)
+
+        class InvokeProxy:
+            def __getattr__(self, name):
+                return getattr(graph, name)
+
+            def invoke(self, *invoke_args, **invoke_kwargs):
+                nonlocal failed
+                if not failed:
+                    failed = True
+                    raise RuntimeError("checkpoint unavailable")
+                return graph.invoke(*invoke_args, **invoke_kwargs)
+
+        return InvokeProxy()
+
+    monkeypatch.setattr(api, "build_graph", build_graph_invoke_failing_once)
+    approved = client.post(f"/api/workflows/{run_id}/approve",
+                           json={"approved": True, "expected_revision": 1})
+    assert approved.status_code == 202
+    version_id = approved.json()["resume_version_id"]
+
+    review_page = client.get(f"/review/{run_id}")
+    assert review_page.status_code == 200
+    assert "已批准、待恢复对账" in review_page.text
+    assert f"/api/resume-versions/{version_id}/docx" in review_page.text
+    assert 'id="retry-reconciliation"' in review_page.text
+    assert 'id="save-edit"' not in review_page.text
+    assert 'id="approve"' not in review_page.text
+    assert 'id="reject"' not in review_page.text
+    assert "<textarea" not in review_page.text
+
+    home = client.get("/")
+    assert f'href="/review/{run_id}">重试对账</a>' in home.text
+    monkeypatch.setattr(api, "build_graph", real_build_graph)
+    retry = client.post(f"/api/workflows/{run_id}/approve",
+                        json={"approved": True, "expected_revision": 1})
+    assert retry.status_code == 200
+    assert retry.json()["resume_version_id"] == version_id
+
+
+def test_legacy_resume_version_still_exports_with_current_job_title(client):
+    job = client.post("/api/jobs", json={
+        "title": "Legacy Java 后端", "company": "Legacy fixture", "raw_text": "原始职位",
+    }).json()
+    old_content = {"sections": {
+        "education": [], "skills": [],
+        "experience": [{"text": "保留旧版内容", "fact_ids": [], "matched_requirements": []}],
+    }}
+    with db.connect(client.database_dsn) as conn:
+        version_id = conn.execute(
+            "INSERT INTO resume_versions (job_id, content, status) "
+            "VALUES (%s, %s::jsonb, 'approved') RETURNING id",
+            (job["id"], json.dumps(old_content)),
+        ).fetchone()["id"]
+
+    response = client.get(f"/api/resume-versions/{version_id}/docx")
+    assert response.status_code == 200
+    from io import BytesIO
+    from docx import Document
+
+    text = "\n".join(p.text for p in Document(BytesIO(response.content)).paragraphs)
+    assert "Legacy Java 后端" in text
+    assert "保留旧版内容" in text

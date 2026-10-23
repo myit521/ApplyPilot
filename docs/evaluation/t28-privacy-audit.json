@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-20",
+  "source_commit": "fc747363ce6c1edf3bd3b29e816a31353af01e33",
+  "main_commit": "19115a722ff206f43783e69fa46b798af96440f2",
+  "scope": "Existing school, employer, private batch identifier and personal project markers in reachable text blobs; resume artifact paths",
+  "public_heads": 21,
+  "atomic_push": true,
+  "explicit_force_with_lease": true,
+  "public_refs_match_filtered_mirror": true,
+  "fresh_remote_text_blobs": 392,
+  "remaining_confirmed_marker_blob_counts": {},
+  "private_artifact_path_count": 0,
+  "other_candidates": "Phone-shaped literals in 3 test files independently classified as known synthetic fixtures",
+  "active_tree_unchanged_by_history_filter": true,
+  "validation": {
+    "fresh_filtered_checkout": "201 passed, 118 deselected, 1 warning in 7.39s",
+    "existing_full_suite": "318 passed, 3 warnings in 128.71s",
+    "new_retirement_case": "1 passed; legacy copy fails without making HTTP requests"
+  },
+  "private_backups_uploaded": false,
+  "other_worktree_modified": false,
+  "limits": [
+    "Known-marker and path audit does not prove absence of all personal data or secrets.",
+    "Old GitHub objects, PR diffs, Actions logs, caches and forks are not verified erased.",
+    "An older local worktree remains private and must not be pushed as-is.",
+    "No real model requests or recruitment-site actions were performed in this phase."
+  ]
+}

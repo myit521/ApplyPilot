@@ -1,0 +1,184 @@
+"""One synthetic live-model rehearsal; temporary tooling, not application configuration."""
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+import threading
+import time
+from datetime import datetime, timezone
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(ROOT / 'scripts'))
+import httpx
+import uvicorn
+from testcontainers.postgres import PostgresContainer
+from applypilot import db, embeddings
+from applypilot.api import create_app
+from applypilot.model_adapter import ModelError
+from evaluate_t14_live_probe import request_once
+
+HERE = Path(__file__).parent
+REPORT = HERE / 'report.json'
+FIXTURE = {
+    'profile': {'name': '合成候选人 T27', 'email': 't27@example.test'},
+    'fact': {'fact_type': 'project', 'source_name': '合成练习项目 T27',
+             'content': '参与 Java 接口开发，并为接口编写单元测试。',
+             'skills': ['Java'], 'evidence_type': 'self_report'},
+    'job': {'title': '合成 Java 后端岗位 T27', 'company': '合成演示公司 T27',
+            'raw_text': '招聘 Java 后端开发。必备：Java。职责：参与接口开发与单元测试。'},
+}
+report = {'at_utc': datetime.now(timezone.utc).isoformat(), 'synthetic_only': True,
+          'fixture': FIXTURE, 'fixture_sha256': hashlib.sha256(json.dumps(FIXTURE, ensure_ascii=False, sort_keys=True).encode()).hexdigest(),
+          'source_commit': '82ce2fd',
+          'harness_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+          'max_requests': 6, 'max_output_tokens_per_request': 1200, 'requests': [],
+          'rehearsal_adapter': 'T14 request_once with per-call output and total request caps',
+          'embedding_provider': 'NullEmbeddingProvider; keyword retrieval only',
+          'status': 'initializing', 'recruitment_site_calls': 0}
+
+def save():
+    target = REPORT.with_suffix('.tmp')
+    target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf8')
+    target.replace(REPORT)
+
+class CappedAdapter:
+    def __init__(self, key):
+        self.key = key
+        self.lock = threading.Lock()
+    def complete(self, system, user):
+        with self.lock:
+            if len(report['requests']) >= 6 or len(system) + len(user) > 16000:
+                report['budget_exhausted'] = True
+                save()
+                raise ModelError('T27 rehearsal budget exhausted')
+            row = {'index': len(report['requests']) + 1,
+                   'step': 'parse' if '职位描述解析器' in system else ('semantic_review' if '事实一致性复核员' in system else 'generate'),
+                   'input_chars': len(system) + len(user)}
+            report['requests'].append(row)
+            save()
+        started = time.monotonic()
+        response = request_once(self.key, system, user, max_tokens=1200)
+        row.update({key: value for key, value in response.items() if key != 'content'})
+        row['elapsed_seconds'] = round(time.monotonic() - started, 3)
+        save()
+        if 'error' in response:
+            raise ModelError('T27 live model request failed: ' + response['error'])
+        return response['content']
+
+def load_key():
+    key = os.environ.get('DEEPSEEK_API_KEY', '')
+    if key:
+        return key
+    # Only extract this local setting; never print or copy the env file.
+    env_path = ROOT / '.env'
+    if env_path.exists():
+        for line in env_path.read_text(encoding='utf-8-sig').splitlines():
+            name, sep, value = line.partition('=')
+            if sep and name.strip() == 'DEEPSEEK_API_KEY':
+                value = value.strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                    value = value[1:-1]
+                return value
+    return ''
+
+def main():
+    key = load_key()
+    if not key:
+        report['status'] = 'missing_model_key'
+        save()
+        return
+    embeddings.LocalEmbeddingProvider = embeddings.NullEmbeddingProvider
+    with PostgresContainer('pgvector/pgvector:pg16') as pg:
+        dsn = pg.get_connection_url().replace('postgresql+psycopg2://', 'postgresql://')
+        report['container_id'] = pg.get_wrapped_container().id
+        with db.connect(dsn) as conn:
+            db.init_schema(conn)
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0))
+            port = sock.getsockname()[1]
+        base = f'http://127.0.0.1:{port}'
+        report['base_url'] = base
+        server = uvicorn.Server(uvicorn.Config(create_app(dsn=dsn, adapter=CappedAdapter(key)),
+                                               host='127.0.0.1', port=port, log_level='error', access_log=False))
+        thread = threading.Thread(target=server.run, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 20
+            while not server.started and time.monotonic() < deadline:
+                time.sleep(.1)
+            assert server.started, 'server_start_timeout'
+            with httpx.Client(base_url=base, timeout=180) as client:
+                def api(method, url, **kwargs):
+                    response = client.request(method, url, **kwargs)
+                    if response.status_code >= 400:
+                        raise RuntimeError(f'local_api_{response.status_code}_{url}')
+                    return response.json()
+                report['ready_status'] = client.get('/health/ready').status_code
+                p = api('PUT', '/api/profile', json={'expected_revision': 0, 'profile': FIXTURE['profile']})
+                api('POST', '/api/profile/confirm', json={'expected_revision': p['revision']})
+                f = api('POST', '/api/facts', json=FIXTURE['fact'])
+                f = api('POST', f"/api/facts/{f['id']}/confirm", json={'expected_revision': f['revision']})
+                report['confirmed_fact'] = f
+                j = api('POST', '/api/jobs', json=FIXTURE['job'])
+                report['job'] = api('POST', f"/api/jobs/{j['id']}/parse")
+                report['match'] = api('GET', f"/api/jobs/{j['id']}/match")
+                run = api('POST', '/api/workflows', json={'job_id': j['id']}, headers={'Idempotency-Key': 't27-one-workflow'})
+                run_id = run['run_id']
+                deadline = time.monotonic() + 600
+                while time.monotonic() < deadline:
+                    state = api('GET', f'/api/workflows/{run_id}')
+                    if state['status'] in ('WAITING_APPROVAL', 'FAILED', 'CANCELLED'):
+                        break
+                    time.sleep(1)
+                report['draft'] = state
+                assert state['status'] == 'WAITING_APPROVAL', 'workflow_not_waiting_approval'
+                report['status'] = 'awaiting_operator_review'
+                save()
+                # Parent must inspect actual output first. This signal only approves this synthetic run.
+                deadline = time.monotonic() + 600
+                while not (HERE / 'approve-synthetic.json').exists() and time.monotonic() < deadline:
+                    time.sleep(1)
+                decision = json.loads((HERE / 'approve-synthetic.json').read_text(encoding='utf8'))
+                assert decision['run_id'] == run_id and decision['expected_revision'] == state['draft_revision']
+                report['operator_review'] = decision
+                approved = api('POST', f'/api/workflows/{run_id}/approve', json={
+                    'approved': True, 'expected_revision': state['draft_revision']})
+                report['approval'] = approved
+                version = approved['resume_version_id']
+                response = client.get(f'/api/resume-versions/{version}/docx')
+                assert response.status_code == 200
+                from docx import Document
+                doc = Document(io.BytesIO(response.content))
+                text = '\n'.join(p.text for p in doc.paragraphs)
+                assert FIXTURE['profile']['name'] in text
+                (HERE / 'synthetic-resume.docx').write_bytes(response.content)
+                report['docx'] = {'bytes': len(response.content), 'sha256': hashlib.sha256(response.content).hexdigest(), 'text': text}
+                application = api('POST', '/api/applications', json={'job_id': j['id'], 'version_id': version,
+                    'channel': '仅合成演示，无外部提交', 'status': 'unknown', 'result': '未访问招聘网站'},
+                    headers={'Idempotency-Key': 't27-one-record'})
+                assert application['source'] == 'user_reported' and application['status'] == 'unknown'
+                report['application'] = application
+                report['review_page_status'] = client.get(f'/review/{run_id}').status_code
+                report['applications_page_status'] = client.get('/applications').status_code
+                report['status'] = 'completed'
+                save()
+        finally:
+            server.should_exit = True
+            thread.join(timeout=15)
+            report['server_stopped'] = not thread.is_alive()
+            save()
+    report['container_context_closed'] = True
+    save()
+
+try:
+    main()
+except Exception as exc:
+    report['status'] = 'failed'
+    # No exception messages or tracebacks: third-party failures can contain credentials.
+    report['failure_type'] = type(exc).__name__
+    save()
+    sys.exit(1)

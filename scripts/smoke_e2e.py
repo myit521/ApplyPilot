@@ -1,118 +1,17 @@
-"""真实环境端到端冒烟脚本。
+"""Retired unbounded legacy demo; keep the old command safe to invoke."""
 
-对运行中的 ApplyPilot 服务执行完整演示链路（docs/design.md 第 16 节）：
-导入事实 -> 解析 JD -> 匹配 -> 启动工作流 -> 等待审批 -> 批准 ->
-导出 DOCX -> 注入虚构指标验证拦截（在独立工作流中）。
-
-用法：
-    docker compose up -d
-    uvicorn applypilot.api:app --port 8000
-    python scripts/smoke_e2e.py
-"""
-
-from __future__ import annotations
-
-import json
 import sys
-import time
-
-import httpx
-
-BASE = "http://127.0.0.1:8000"
-
-RESUME_TEXT = (
-    "以下是完全虚构的合成演示材料，不对应真实候选人。"
-    "参与合成项目的 Java 接口开发，并编写单元测试。"
-)
-
-JD_TEXT = (
-    "Java 后端开发工程师（2027 届校招）- 杭州。"
-    "职责：参与交易核心系统后端服务开发，参与订单、库存模块接口设计与性能优化。"
-    "要求：2027 届本科及以上学历，熟悉 Java，了解 Spring Boot、MySQL、Redis。"
-    "加分项：有 Agent 或 AI 应用开发经验者优先。"
-)
-
-
-def wait_approval(client: httpx.Client, run_id: str, timeout: float = 180.0) -> dict:
-    """等待工作流进入终态或审批中断点。
-
-    以业务状态字段为准：执行中途 state.next 同样非空，
-    不能用 waiting 判断是否已停在审批。
-    """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        resp = client.get(f"/api/workflows/{run_id}")
-        if resp.status_code == 200:
-            state = resp.json()
-            if state["status"] in ("WAITING_APPROVAL", "FAILED", "READY_TO_APPLY"):
-                return state
-        time.sleep(2)
-    raise TimeoutError(f"工作流 {run_id} 超时")
 
 
 def main() -> int:
-    client = httpx.Client(base_url=BASE, timeout=120.0)
-
-    print("== 1. 导入简历事实 ==")
-    resp = client.post("/api/facts/import", json={"resume_text": RESUME_TEXT})
-    resp.raise_for_status()
-    facts = resp.json()["facts"]
-    print(f"提取 {len(facts)} 条事实：")
-    for f in facts:
-        print(f"  - [{f['fact_type']}] {f['source_name']}: {f['content'][:40]}... 指标: {f['metrics']}")
-
-    print(json.dumps(facts, ensure_ascii=False, indent=2))
-    if input("Review all extracted facts above. Type CONFIRM to assert they match the source: ") != "CONFIRM":
-        print("Drafts retained. Review/edit at /profile before continuing.")
-        return 1
-    for fact in facts:
-        response = client.post(f"/api/facts/{fact['id']}/confirm", json={"expected_revision": fact['revision']})
-        response.raise_for_status()
-
-    print("\n== 2. 保存并解析 JD ==")
-    resp = client.post("/api/jobs", json={"title": "Java 后端开发工程师", "company": "模拟公司", "raw_text": JD_TEXT})
-    resp.raise_for_status()
-    job = resp.json()
-    resp = client.post(f"/api/jobs/{job['id']}/parse")
-    resp.raise_for_status()
-    parsed = resp.json()["parsed"]
-    print(f"岗位: {parsed['job_title']} | 必备: {parsed['required']}")
-    print(f"加分: {parsed['preferred']}")
-
-    print("\n== 3. 岗位匹配 ==")
-    match = client.get(f"/api/jobs/{job['id']}/match").json()
-    for c in match["candidates"]:
-        print(f"  - {c['fact']['id']} 得分 {c['score']} 覆盖率 {c['skill_coverage']}")
-
-    print("\n== 4. 启动工作流，等待审批 ==")
-    run_id = client.post("/api/workflows", json={"job_id": job["id"]}).json()["run_id"]
-    state = wait_approval(client, run_id)
-    print(f"状态: {state['status']}, 校验重试: {state['validation_retries']}")
-    if state["status"] != "WAITING_APPROVAL":
-        print(f"!! 工作流未进入审批: {state['error']}")
-        return 1
-    titles = {"education": "教育背景", "skills": "专业技能", "experience": "工作与项目经历"}
-    for name, title in titles.items():
-        for c in (state["sections"] or {}).get(name, []):
-            print(f"  [{title}] {c['text'][:60]} 引用: {c['fact_ids']}")
-
-    print("\n== 5. 批准并冻结版本 ==")
-    result = client.post(
-        f"/api/workflows/{run_id}/approve", json={"approved": True}
-    ).json()
-    version_id = result.get("resume_version_id")
-    print(f"状态: {result['status']}, 简历版本: {version_id}")
-
-    print("\n== 6. 导出 DOCX ==")
-    resp = client.get(f"/api/resume-versions/{version_id}/docx")
-    resp.raise_for_status()
-    out = f"resume-v{version_id}.docx"
-    with open(out, "wb") as f:
-        f.write(resp.content)
-    print(f"已保存 {out} ({len(resp.content)} 字节)")
-
-    print("\n== 冒烟通过 ==")
-    return 0
+    print(
+        "旧冒烟入口已停用：它缺少模型费用边界与逐版本审批确认。\n"
+        "本命令不会读取简历、连接服务或调用模型。\n"
+        "请按 docs/delivery-checklist.md 使用本机页面；"
+        "合成数据验证记录见 docs/t27-execution.md。",
+        file=sys.stderr,
+    )
+    return 2
 
 
 if __name__ == "__main__":

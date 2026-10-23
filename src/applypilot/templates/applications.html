@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ApplyPilot 投递记录</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+label { display: block; margin: .7rem 0; }
+input, select, textarea { display: block; box-sizing: border-box; width: 100%; padding: .5rem; }
+textarea { min-height: 4rem; }
+button { padding: .45rem .8rem; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .45rem; border-bottom: 1px solid #ddd; overflow-wrap: anywhere; }
+.error { color: #b91c1c; }
+</style>
+</head>
+<body>
+<p><a href="/">返回审核台</a></p>
+<h1>人工投递记录</h1>
+<p>请先在招聘网站自行完成操作，再记录你知道的结果。这里的“已提交”仅是用户自述，不表示网站已确认；没有回执可选“未知”。下载简历或导出文件不等于提交。</p>
+<form id="record-form">
+<label for="version">已批准简历版本
+<select id="version" required>
+<option value="">请选择</option>
+{% for v in approved_versions %}
+<option value="{{ v.version_id }}" data-job-id="{{ v.job_id }}" {% if v.version_id == selected_version_id %}selected{% endif %}>#{{ v.version_id }} · {{ v.company }} · {{ v.title }}</option>
+{% endfor %}
+</select></label>
+<label for="channel">投递渠道（如官网、邮箱）<input id="channel" required maxlength="100"></label>
+<label for="status">结果
+<select id="status"><option value="unknown">未知</option><option value="submitted">用户自述已提交</option><option value="failed">失败</option></select></label>
+<label for="occurred-at">操作时间（可留空）<input id="occurred-at" type="datetime-local"></label>
+<label for="result">备注或回执线索（可留空，最多 2000 字）<textarea id="result" maxlength="2000"></textarea></label>
+<button id="save" type="submit">保存记录</button>
+<button id="cancel-edit" type="button" hidden>取消编辑</button>
+</form>
+<p id="message" role="status" aria-live="polite"></p>
+<h2>历史记录</h2>
+<table><thead><tr><th>职位 / 版本</th><th>渠道</th><th>结果</th><th>发生时间</th><th>来源</th><th>备注</th><th></th></tr></thead><tbody id="records"></tbody></table>
+<script>
+const form = document.getElementById('record-form');
+const version = document.getElementById('version');
+const channel = document.getElementById('channel');
+const statusInput = document.getElementById('status');
+const occurredAt = document.getElementById('occurred-at');
+const result = document.getElementById('result');
+const message = document.getElementById('message');
+const save = document.getElementById('save');
+const cancelEdit = document.getElementById('cancel-edit');
+let editing = null;
+let requestKey = null;
+let rows = [];
+function localDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+function reset() {
+  editing = null;
+  requestKey = null;
+  form.reset();
+  channel.disabled = false;
+  version.disabled = false;
+  save.textContent = '保存记录';
+  cancelEdit.hidden = true;
+}
+async function refresh() {
+  const response = await fetch('/api/applications');
+  if (!response.ok) { message.textContent = '读取记录失败'; message.className = 'error'; return; }
+  rows = await response.json();
+  const body = document.getElementById('records');
+  body.replaceChildren();
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const option = [...version.options].find(v => Number(v.value) === row.version_id);
+    const statusLabel = {unknown: '未知', submitted: '用户自述已提交', failed: '失败'};
+    const sourceLabel = {user_reported: '用户自述', legacy_unverified: '历史记录，来源未核实'};
+    const values = [option ? option.textContent : `职位 #${row.job_id} / 版本 #${row.version_id}`,
+      row.channel, statusLabel[row.status] || `历史状态：${row.status}`,
+      row.occurred_at ? new Date(row.occurred_at).toLocaleString() : '未知',
+      sourceLabel[row.source] || row.source, row.result || ''];
+    for (const value of values) { const td = document.createElement('td'); td.textContent = value; tr.append(td); }
+    const action = document.createElement('td');
+    if (row.source === 'user_reported') {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = '修改结果';
+      button.onclick = () => {
+        editing = row; requestKey = null;
+        version.value = String(row.version_id); version.disabled = true;
+        channel.value = row.channel; channel.disabled = true;
+        statusInput.value = row.status; occurredAt.value = localDate(row.occurred_at);
+        result.value = row.result;
+        save.textContent = '保存修改'; cancelEdit.hidden = false;
+        form.scrollIntoView({behavior: 'smooth'});
+      };
+      action.append(button);
+    }
+    tr.append(action); body.append(tr);
+  }
+}
+cancelEdit.onclick = reset;
+form.onsubmit = async event => {
+  event.preventDefault();
+  const option = version.selectedOptions[0];
+  if (!editing && !option?.dataset.jobId) return;
+  const body = {status: statusInput.value,
+    occurred_at: occurredAt.value ? new Date(occurredAt.value).toISOString() : null,
+    result: result.value.trim()};
+  if (editing) body.expected_revision = editing.revision;
+  else {
+    body.job_id = Number(option.dataset.jobId);
+    body.version_id = Number(version.value);
+    body.channel = channel.value.trim();
+  }
+  save.disabled = true;
+  try {
+    if (!editing) requestKey ||= crypto.randomUUID();
+    const response = await fetch(editing ? `/api/applications/${editing.id}` : '/api/applications', {
+      method: editing ? 'PATCH' : 'POST',
+      headers: {'Content-Type': 'application/json', ...(!editing ? {'Idempotency-Key': requestKey} : {})},
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const detail = Array.isArray(data.detail)
+        ? data.detail.map(item => item.msg || String(item)).join('；')
+        : (data.detail || String(response.status));
+      message.textContent = `保存失败：${detail}${response.status === 409 ? '。请核对历史记录后刷新。' : ''}`;
+      message.className = 'error'; return;
+    }
+    message.textContent = '记录已保存。来源：用户自述。'; message.className = '';
+    reset(); await refresh();
+  } catch (_) {
+    message.textContent = '网络错误；请检查记录后再重试。'; message.className = 'error';
+  } finally { save.disabled = false; }
+};
+refresh();
+</script>
+</body>
+</html>

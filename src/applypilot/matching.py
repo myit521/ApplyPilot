@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from .jd_polarity import is_explicit_non_requirement
 from .schemas import Fact, JobRequirements
 
 
@@ -22,6 +23,15 @@ def _contains_term(text: str, term: str) -> bool:
 
 def _requirement_terms(text: str, keywords: list[str]) -> list[str]:
     return [term for term in keywords if _contains_term(text, term)]
+
+
+def _is_one_of_clause(text: str, terms: list[str]) -> bool:
+    if len(terms) != 2:
+        return False
+    first, second = (re.escape(term) for term in terms)
+    pair = rf"(?:{first}\s*或\s*{second}|{second}\s*或\s*{first})"
+    marker = r"(?:任一|至少[^，；。,.]{0,12}一种)"
+    return bool(re.search(pair + r"\s*" + marker, text, flags=re.IGNORECASE))
 
 
 def _fact_matches(fact: Fact, term: str) -> tuple[bool, str]:
@@ -55,7 +65,8 @@ def _evidence_excerpt(content: str, term: str, limit: int = 500) -> str:
     return ("…" if start else "") + content[start:end] + ("…" if end < len(content) else "")
 
 
-def _assess(category: str, text: str, terms: list[str], facts: list[Fact]) -> dict:
+def _assess(category: str, text: str, terms: list[str], facts: list[Fact],
+            *, any_of: bool = False) -> dict:
     evidence_by_id: dict[str, dict] = {}
     matched_terms: list[str] = []
     for term in terms:
@@ -93,6 +104,9 @@ def _assess(category: str, text: str, terms: list[str], facts: list[Fact]) -> di
     elif not matched_terms:
         status = "no_evidence"
         reason = "已确认事实中没有找到这些关键词"
+    elif any_of:
+        status = "supported"
+        reason = "任一候选关键词已在所列事实中找到；仍需人工核对上下文"
     elif len(matched_terms) < len(terms):
         status = "partial"
         reason = "已确认事实只覆盖了部分关键词"
@@ -116,6 +130,10 @@ def build_match_report(requirements: JobRequirements, facts: list[Fact]) -> dict
     keywords = list(dict.fromkeys(keyword.term.strip() for keyword in requirements.keywords if keyword.term.strip()))
     entries: list[dict] = []
     covered_terms: set[str] = set()
+    unknowns = [
+        {"text": text, "status": "unknown", "reason": "职位描述解析器无法确定此项"}
+        for text in requirements.unknowns
+    ]
 
     clauses = (
         ("required", requirements.required),
@@ -126,15 +144,25 @@ def build_match_report(requirements: JobRequirements, facts: list[Fact]) -> dict
         for text in texts:
             terms = _requirement_terms(text, keywords)
             covered_terms.update(terms)
-            entries.append(_assess(category, text, terms, active_facts))
+            if category in ("required", "preferred") and is_explicit_non_requirement(text):
+                unknowns.append({"text": text, "status": "unknown",
+                                 "reason": "解析结果与非要求或可选措辞冲突；已阻止匹配，请重新解析或人工核对"})
+                continue
+            entries.append(_assess(category, text, terms, active_facts,
+                                   any_of=_is_one_of_clause(text, terms)))
 
+    mentioned_only = {keyword.term.strip() for keyword in requirements.keywords
+                      if keyword.importance == "mentioned"} - {
+        keyword.term.strip() for keyword in requirements.keywords
+        if keyword.importance != "mentioned"
+    }
     for term in keywords:
         if term in covered_terms:
             continue
+        if term in mentioned_only:
+            unknowns.append({"text": term, "status": "unknown",
+                             "reason": "仅被提及，未列为必备或加分；不作为匹配要求"})
+            continue
         entries.append(_assess("keyword", term, [term], active_facts))
 
-    unknowns = [
-        {"text": text, "status": "unknown", "reason": "职位描述解析器无法确定此项"}
-        for text in requirements.unknowns
-    ]
     return {"requirements": entries, "unknowns": unknowns}

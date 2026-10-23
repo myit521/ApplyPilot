@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "source_fixture_sha256": "9f03ec53bc16b12e7d289af30e58ad44ec4bbf0563a1e8b5368f9ca7acdc444e",
+  "source_report_sha256": "4941a3d919ec7558fca9e281bc2fe202f1b48568e8e1712205c488c02517e044",
+  "cases": [
+    {"id": "jd01", "atoms": [
+      {"atom": "岗位：Java 后端开发", "kind": "title", "source_span": "Java 后端开发", "observed_field": "job_title", "observed_text": "Java 后端开发", "verdict": "covered"},
+      {"atom": "地点：上海", "kind": "location", "source_span": "（上海）", "observed_field": "location", "observed_text": "上海", "verdict": "covered"},
+      {"atom": "Java", "kind": "required", "source_span": "必备 Java、Spring Boot", "observed_field": "required", "observed_text": "Java", "verdict": "covered"},
+      {"atom": "Spring Boot", "kind": "required", "source_span": "必备 Java、Spring Boot", "observed_field": "required", "observed_text": "Spring Boot", "verdict": "covered"},
+      {"atom": "业务接口开发", "kind": "responsibility", "source_span": "负责业务接口开发", "observed_field": "responsibilities", "observed_text": "负责业务接口开发", "verdict": "covered"}
+    ]},
+    {"id": "jd02", "atoms": [
+      {"atom": "岗位：交易后端", "kind": "title", "source_span": "交易后端", "observed_field": "job_title", "observed_text": "交易后端", "verdict": "covered"},
+      {"atom": "地点：北京", "kind": "location", "source_span": "（北京）", "observed_field": "location", "observed_text": "北京", "verdict": "covered"},
+      {"atom": "MySQL", "kind": "required", "source_span": "必备 MySQL 与 Redis", "observed_field": "required", "observed_text": "必备 MySQL 与 Redis", "verdict": "covered"},
+      {"atom": "Redis", "kind": "required", "source_span": "必备 MySQL 与 Redis", "observed_field": "required", "observed_text": "必备 MySQL 与 Redis", "verdict": "covered"},
+      {"atom": "慢查询分析", "kind": "required", "source_span": "能分析慢查询", "normalization_note": "把原文动词短语转成名词标签，能力含义不变。", "observed_field": "required", "observed_text": "能分析慢查询", "verdict": "covered"},
+      {"atom": "Kafka", "kind": "preferred", "source_span": "Kafka 为加分项", "observed_field": "preferred", "observed_text": "Kafka 为加分项", "verdict": "covered"}
+    ]},
+    {"id": "jd03", "atoms": [
+      {"atom": "岗位：云原生后端", "kind": "title", "source_span": "云原生后端", "observed_field": "job_title", "observed_text": "云原生后端", "verdict": "covered"},
+      {"atom": "地点：深圳", "kind": "location", "source_span": "（深圳）", "observed_field": "location", "observed_text": "深圳", "verdict": "covered"},
+      {"atom": "Docker", "kind": "required", "source_span": "必备 Docker 和 Kubernetes", "observed_field": "required", "observed_text": "Docker", "verdict": "covered"},
+      {"atom": "Kubernetes", "kind": "required", "source_span": "必备 Docker 和 Kubernetes", "observed_field": "required", "observed_text": "Kubernetes", "verdict": "covered"},
+      {"atom": "容器部署", "kind": "responsibility", "source_span": "参与容器部署", "observed_field": "responsibilities", "observed_text": "参与容器部署", "verdict": "covered"}
+    ]},
+    {"id": "jd04", "atoms": [
+      {"atom": "岗位：Java 质量工程方向", "kind": "title", "source_span": "Java 质量工程方向", "observed_field": "job_title", "observed_text": "Java 质量工程方向", "verdict": "covered"},
+      {"atom": "Java 开发经验", "kind": "required", "source_span": "必备 Java 开发经验及 JUnit 单元测试", "observed_field": "required", "observed_text": "Java 开发经验", "verdict": "covered"},
+      {"atom": "JUnit 单元测试", "kind": "required", "source_span": "必备 Java 开发经验及 JUnit 单元测试", "observed_field": "required", "observed_text": "JUnit 单元测试", "verdict": "covered"},
+      {"atom": "接口评审", "kind": "unspecified", "source_span": "熟悉接口评审", "observed_field": "required", "observed_text": "熟悉接口评审", "verdict": "needs_review", "reason": "原文另起分句且没有明确必备或加分标记；模型将其列为 required，需人工确认级别。"}
+    ]},
+    {"id": "jd05", "atoms": [
+      {"atom": "岗位：AI 应用后端", "kind": "title", "source_span": "AI 应用后端", "observed_field": "job_title", "observed_text": "AI 应用后端", "verdict": "covered"},
+      {"atom": "地点：杭州", "kind": "location", "source_span": "（杭州）", "observed_field": "location", "observed_text": "杭州", "verdict": "covered"},
+      {"atom": "Python", "kind": "required", "source_span": "必备 Python、FastAPI", "observed_field": "required", "observed_text": "Python", "verdict": "covered"},
+      {"atom": "FastAPI", "kind": "required", "source_span": "必备 Python、FastAPI", "observed_field": "required", "observed_text": "FastAPI", "verdict": "covered"},
+      {"atom": "企业知识库问答", "kind": "responsibility", "source_span": "参与企业知识库问答", "observed_field": "responsibilities", "observed_text": "参与企业知识库问答", "verdict": "covered"}
+    ]},
+    {"id": "jd06", "atoms": [
+      {"atom": "岗位：Agent 原型开发", "kind": "title", "source_span": "Agent 原型开发", "observed_field": "job_title", "observed_text": "Agent 原型开发", "verdict": "covered"},
+      {"atom": "LangGraph", "kind": "required", "source_span": "必备 LangGraph 与 Python", "observed_field": "required", "observed_text": "必备 LangGraph 与 Python", "verdict": "covered"},
+      {"atom": "Python", "kind": "required", "source_span": "必备 LangGraph 与 Python", "observed_field": "required", "observed_text": "必备 LangGraph 与 Python", "verdict": "covered"},
+      {"atom": "生产级监控", "kind": "preferred", "source_span": "熟悉生产级监控加分", "observed_field": "preferred", "observed_text": "熟悉生产级监控加分", "verdict": "covered"}
+    ]},
+    {"id": "jd07", "atoms": [
+      {"atom": "岗位：分布式后端", "kind": "title", "source_span": "分布式后端", "observed_field": "job_title", "observed_text": "分布式后端", "verdict": "covered"},
+      {"atom": "Java", "kind": "required", "source_span": "必备 Java、Kafka", "observed_field": "required", "observed_text": "Java", "verdict": "covered"},
+      {"atom": "Kafka", "kind": "required", "source_span": "必备 Java、Kafka", "observed_field": "required", "observed_text": "Kafka", "verdict": "covered"},
+      {"atom": "Spring Cloud", "kind": "preferred", "source_span": "Spring Cloud 加分", "observed_field": "preferred", "observed_text": "Spring Cloud", "verdict": "covered"}
+    ]},
+    {"id": "jd08", "atoms": [
+      {"atom": "岗位：数据库开发", "kind": "title", "source_span": "数据库开发", "observed_field": "job_title", "observed_text": "数据库开发", "verdict": "covered"},
+      {"atom": "地点：远程", "kind": "location", "source_span": "（远程）", "observed_field": "location", "observed_text": "远程", "verdict": "covered"},
+      {"atom": "MySQL 调优", "kind": "required", "source_span": "必备 MySQL 调优与 PostgreSQL", "observed_field": "required", "observed_text": "MySQL 调优", "verdict": "covered"},
+      {"atom": "PostgreSQL", "kind": "required", "source_span": "必备 MySQL 调优与 PostgreSQL", "observed_field": "required", "observed_text": "PostgreSQL", "verdict": "covered"},
+      {"atom": "SQL 基础", "kind": "required", "source_span": "需要 SQL 基础", "observed_field": "required", "observed_text": "SQL 基础", "verdict": "covered"}
+    ]},
+    {"id": "jd09", "atoms": [
+      {"atom": "岗位：校招生后端", "kind": "title", "source_span": "校招生后端", "observed_field": "job_title", "observed_text": "校招生后端", "verdict": "covered"},
+      {"atom": "本科", "kind": "education", "source_span": "2027 届本科", "observed_field": "education_requirement", "observed_text": "本科", "verdict": "covered"},
+      {"atom": "2027 届", "kind": "graduation", "source_span": "2027 届本科", "observed_field": "graduation_time_requirement", "observed_text": "2027 届", "verdict": "covered"},
+      {"atom": "跨团队联调", "kind": "responsibility", "source_span": "参加跨团队联调", "observed_field": "responsibilities", "observed_text": "参加跨团队联调", "verdict": "covered"},
+      {"atom": "具体毕业日期未定", "kind": "open_question", "source_span": "毕业时间和到岗日期请另议", "normalization_note": "“请另议”表示具体日期尚未确定；不把 2027 届误读成具体毕业日。", "observed_field": "unknowns", "observed_text": "毕业时间具体日期", "verdict": "covered"},
+      {"atom": "到岗日期未定", "kind": "open_question", "source_span": "毕业时间和到岗日期请另议", "normalization_note": "“请另议”表示到岗日期尚未确定。", "observed_field": "unknowns", "observed_text": "到岗日期", "verdict": "covered"}
+    ]},
+    {"id": "jd10", "atoms": [
+      {"atom": "岗位：后端综合岗", "kind": "title", "source_span": "后端综合岗", "observed_field": "job_title", "observed_text": "后端综合岗", "verdict": "covered"},
+      {"atom": "Spring Boot", "kind": "required", "source_span": "必备 Spring Boot 与 Redis", "observed_field": "required", "observed_text": "Spring Boot", "verdict": "covered"},
+      {"atom": "Redis", "kind": "required", "source_span": "必备 Spring Boot 与 Redis", "observed_field": "required", "observed_text": "Redis", "verdict": "covered"},
+      {"atom": "Docker", "kind": "preferred", "source_span": "Docker 为加分项", "observed_field": "preferred", "observed_text": "Docker", "verdict": "covered"},
+      {"atom": "线上高可用服务交付", "kind": "responsibility", "source_span": "负责交付线上高可用服务", "normalization_note": "把“负责交付”调整为名词标签，不增加已交付的事实。", "observed_field": "responsibilities", "observed_text": "负责交付线上高可用服务", "verdict": "covered"}
+    ]}
+  ]
+}

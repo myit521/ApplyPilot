@@ -105,3 +105,27 @@ def test_manual_record_boundaries(case):
     assert page.status_code == 200
     assert "用户自述" in page.text
     assert f'value="{version_id}"' in page.text
+
+
+def test_selected_old_version_is_available_beyond_recent_hundred(case):
+    client, dsn, job_id, version_id, _ = case
+    with db.connect(dsn) as conn:
+        for index in range(101):
+            newer = conn.execute(
+                "INSERT INTO resume_versions (job_id,content,status) "
+                "VALUES (%s,'{}'::jsonb,'approved') RETURNING id", (job_id,),
+            ).fetchone()["id"]
+            run_id = f"t34_list_{index}"
+            conn.execute(
+                "INSERT INTO workflow_runs (id,current_node,status) "
+                "VALUES (%s,'approval','READY_TO_APPLY')", (run_id,),
+            )
+            conn.execute(
+                "INSERT INTO workflow_approvals (run_id,draft_revision,content_sha256,version_id) "
+                "VALUES (%s,1,%s,%s)", (run_id, "b" * 64, newer),
+            )
+    page = client.get(f"/applications?version_id={version_id}")
+    assert page.status_code == 200
+    version_choices = page.text.partition('<select id="version"')[2].partition('</select>')[0]
+    assert f'value="{version_id}" data-job-id="{job_id}" selected' in version_choices
+    assert version_choices.count('<option value=') == 101  # Empty choice plus 100 versions.

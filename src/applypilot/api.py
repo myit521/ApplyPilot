@@ -989,11 +989,15 @@ def create_app(
     def applications_page(request: Request, version_id: int | None = Query(default=None, gt=0)) -> HTMLResponse:
         with get_conn() as conn:
             approved_versions = conn.execute(
-                "SELECT wa.version_id, rv.job_id, j.company, j.title "
+                "SELECT wa.version_id, rv.job_id, "
+                "COALESCE(rv.content->'job_snapshot'->>'company',j.company) AS company, "
+                "COALESCE(rv.content->'job_snapshot'->>'title',j.title) AS title "
                 "FROM workflow_approvals wa "
                 "JOIN resume_versions rv ON rv.id=wa.version_id "
                 "JOIN jobs j ON j.id=rv.job_id "
-                "ORDER BY wa.approved_at DESC LIMIT 100"
+                "ORDER BY (wa.version_id=%s) DESC NULLS LAST, "
+                "wa.approved_at DESC, wa.version_id DESC LIMIT 100",
+                (version_id,),
             ).fetchall()
         return TEMPLATES.TemplateResponse(request, "applications.html", {
             "approved_versions": approved_versions, "selected_version_id": version_id,

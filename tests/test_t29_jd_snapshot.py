@@ -76,7 +76,7 @@ def test_queue_snapshot_survives_job_changes_and_is_frozen_at_approval(case):
         reserved = task_repo.reserve_workflow_task(conn, job_id=job_id, idempotency_key="t29-snapshot")
         original = task_repo.get_task(conn, reserved["run_id"])["job_snapshot"]
         assert original["raw_text"] == "Java 原始 JD"
-        conn.execute("UPDATE jobs SET title='变更后岗位',raw_text='Python 新 JD',parsed=%s WHERE id=%s",
+        conn.execute("UPDATE jobs SET company='变更后公司',title='变更后岗位',raw_text='Python 新 JD',parsed=%s WHERE id=%s",
                      (Jsonb({**PARSED, "required": ["Python"]}), job_id))
         replay = task_repo.reserve_workflow_task(conn, job_id=job_id, idempotency_key="t29-snapshot")
         assert replay["run_id"] == reserved["run_id"]
@@ -92,8 +92,13 @@ def test_queue_snapshot_survives_job_changes_and_is_frozen_at_approval(case):
             content = conn.execute("SELECT content FROM resume_versions WHERE id=%s",
                 (approved.json()["resume_version_id"],)).fetchone()["content"]
         assert content["job_snapshot"]["title"] == "原合成岗位"
+        assert content["job_snapshot"]["company"] == "原合成公司"
         assert content["job_snapshot"]["raw_text"] == "Java 原始 JD"
         assert content["job_snapshot"]["parsed"]["required"] == ["Java"]
+        page = client.get(f"/applications?version_id={approved.json()['resume_version_id']}")
+        assert page.status_code == 200
+        assert "原合成公司 · 原合成岗位" in page.text
+        assert "变更后公司 · 变更后岗位" not in page.text
 
 
 def test_explicit_parse_is_not_repeated_when_workflow_starts(case):
